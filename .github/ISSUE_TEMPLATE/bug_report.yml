@@ -1,0 +1,88 @@
+name: Bug report
+description: Something behaves differently from how it should
+labels: [bug, needs-triage]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Before anything else: **do not attach real call recordings, transcripts,
+        or anything containing customer data.** This tracker is public. If a bug
+        only reproduces on real audio, describe its shape — length, language,
+        channel count, sample rate — rather than sending the file.
+
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened
+      description: What you saw, and what you expected instead.
+      placeholder: |
+        Redaction left a phone number in the transcript when the number was
+        spoken as digits with pauses between them.
+    validations:
+      required: true
+
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: Steps to reproduce
+      value: |
+        1.
+        2.
+        3.
+    validations:
+      required: true
+
+  - type: dropdown
+    id: area
+    attributes:
+      label: Which part
+      options:
+        - Desktop app (UI)
+        - CLI (`ca`)
+        - Transcription (ca-asr / whisper)
+        - Diarization (ca-diarize)
+        - PII redaction (ca-privacy)
+        - Agents and scoring (ca-agents, ca-metrics)
+        - LLM providers (ca-llm)
+        - Storage (ca-store)
+        - Ingestion (ca-ingest)
+        - Install / packaging
+        - Not sure
+    validations:
+      required: true
+
+  - type: input
+    id: version
+    attributes:
+      label: Version
+      description: From the app's about screen, or `ca --version`.
+      placeholder: 0.1.0
+    validations:
+      required: true
+
+  - type: input
+    id: os
+    attributes:
+      label: Windows version
+      placeholder: Windows 11 24H2
+    validations:
+      required: true
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs
+      description: |
+        Run with `RUST_LOG=debug` and paste the relevant part. Check it for
+        API keys and customer data before pasting.
+      render: text
+
+  - type: checkboxes
+    id: confirms
+    attributes:
+      label: Before submitting
+      options:
+        - label: I searched existing issues
+          required: true
+        - label: This report contains no customer data and no API keys
+          required: true

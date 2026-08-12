@@ -1,0 +1,15 @@
+# Deliberately close to rustfmt defaults.
+#
+# Every non-default option is a rule every contributor must learn and every
+# reviewer must remember. The default style is the one the whole Rust
+# ecosystem already reads fluently, so the bar for deviating is high and
+# nothing here has cleared it. This file exists to pin the edition (so
+# `cargo fmt` and CI agree on parsing rules) and to make the choice explicit
+# rather than accidental.
+
+edition = "2021"
+
+# Keep `use` statements in a stable order so imports never produce a diff
+# that depends on the order a contributor happened to type them in.
+reorder_imports = true
+reorder_modules = true

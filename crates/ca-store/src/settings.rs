@@ -76,7 +76,10 @@ mod tests {
     #[test]
     fn a_setting_round_trips() {
         let s = Store::in_memory().unwrap();
-        let cfg = Cfg { provider: "openai".into(), concurrency: 4 };
+        let cfg = Cfg {
+            provider: "openai".into(),
+            concurrency: 4,
+        };
         s.put_setting("llm", &cfg).unwrap();
         assert_eq!(s.get_setting::<Cfg>("llm").unwrap(), Some(cfg));
     }
@@ -90,8 +93,22 @@ mod tests {
     #[test]
     fn writing_twice_replaces_rather_than_failing() {
         let s = Store::in_memory().unwrap();
-        s.put_setting("llm", &Cfg { provider: "a".into(), concurrency: 1 }).unwrap();
-        s.put_setting("llm", &Cfg { provider: "b".into(), concurrency: 2 }).unwrap();
+        s.put_setting(
+            "llm",
+            &Cfg {
+                provider: "a".into(),
+                concurrency: 1,
+            },
+        )
+        .unwrap();
+        s.put_setting(
+            "llm",
+            &Cfg {
+                provider: "b".into(),
+                concurrency: 2,
+            },
+        )
+        .unwrap();
         let got: Cfg = s.get_setting("llm").unwrap().unwrap();
         assert_eq!(got.provider, "b");
     }
@@ -108,7 +125,14 @@ mod tests {
     #[test]
     fn deleting_restores_the_default() {
         let s = Store::in_memory().unwrap();
-        s.put_setting("llm", &Cfg { provider: "a".into(), concurrency: 1 }).unwrap();
+        s.put_setting(
+            "llm",
+            &Cfg {
+                provider: "a".into(),
+                concurrency: 1,
+            },
+        )
+        .unwrap();
         s.delete_setting("llm").unwrap();
         assert!(s.get_setting::<Cfg>("llm").unwrap().is_none());
     }

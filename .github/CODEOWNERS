@@ -1,0 +1,26 @@
+# Code owners are requested for review automatically and, when branch
+# protection requires owner review, must approve before a merge.
+#
+# Later matches win, so the specific rules below override the catch-all.
+
+# Everything, unless a rule below is more specific.
+*                           @Yash-Kavaiya
+
+# ── Areas where a mistake is expensive ─────────────────────────
+# The pipeline itself: a change here changes what "passing" means.
+/.github/                   @Yash-Kavaiya
+/deny.toml                  @Yash-Kavaiya
+/rust-toolchain.toml        @Yash-Kavaiya
+
+# PII redaction. A regression here is a data-protection incident, not a bug.
+/crates/ca-privacy/         @Yash-Kavaiya
+
+# Credential handling for bring-your-own-key providers.
+/crates/ca-llm/src/secrets.rs  @Yash-Kavaiya
+
+# The database schema, which existing installations have to migrate through.
+/crates/ca-store/src/schema.rs @Yash-Kavaiya
+
+# Packaging and what ships inside the installer.
+/apps/desktop/src-tauri/tauri.conf.json   @Yash-Kavaiya
+/apps/desktop/src-tauri/capabilities/     @Yash-Kavaiya

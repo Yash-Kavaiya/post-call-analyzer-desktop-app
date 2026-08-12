@@ -1,0 +1,32 @@
+# Applies path-based labels to pull requests, per .github/labeler.yml.
+#
+# Kept out of ci.yml on purpose. This needs `pull-requests: write`, and the CI
+# workflow runs contributor code — a workflow that both executes a fork's code
+# and holds a write token is the shape most GitHub Actions compromises take.
+# This one checks out nothing and runs nothing from the branch.
+name: Labeler
+
+on:
+  pull_request_target:
+    types: [opened, synchronize, reopened, ready_for_review]
+
+permissions:
+  contents: read
+  pull-requests: write
+
+concurrency:
+  group: labeler-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  label:
+    name: Apply labels
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/labeler@v5
+        with:
+          repo-token: ${{ secrets.GITHUB_TOKEN }}
+          configuration-path: .github/labeler.yml
+          # Labels a contributor added deliberately are left alone.
+          sync-labels: false

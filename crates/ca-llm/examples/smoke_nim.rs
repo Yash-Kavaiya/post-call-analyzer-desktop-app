@@ -15,11 +15,15 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     ])
     .with_schema(serde_json::json!({"type": "object"}));
 
-    let (value, resp): (serde_json::Value, _) = ca_llm::complete_json(provider.as_ref(), req).await?;
+    let (value, resp): (serde_json::Value, _) =
+        ca_llm::complete_json(provider.as_ref(), req).await?;
     println!("provider   : {}", provider.name());
     println!("model      : {}", resp.model);
     println!("latency_ms : {}", resp.latency_ms);
-    println!("tokens     : in={} out={}", resp.input_tokens, resp.output_tokens);
+    println!(
+        "tokens     : in={} out={}",
+        resp.input_tokens, resp.output_tokens
+    );
     println!("parsed     : {}", serde_json::to_string(&value)?);
     Ok(())
 }

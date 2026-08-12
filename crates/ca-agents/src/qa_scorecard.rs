@@ -192,7 +192,10 @@ impl QaScorecardAgent {
                 score: m.score.clamp(0.0, 1.0),
                 weight: spec.weight,
                 reasoning: if unevidenced {
-                    format!("{} (no verifiable citation; excluded from score)", m.reasoning.trim())
+                    format!(
+                        "{} (no verifiable citation; excluded from score)",
+                        m.reasoning.trim()
+                    )
                 } else {
                     m.reasoning.trim().to_string()
                 },
@@ -286,7 +289,10 @@ mod tests {
         let card = agent().validate(out, &transcript()).unwrap();
         let g = card.criteria.iter().find(|c| c.key == "greeting").unwrap();
         assert_eq!(g.citations.len(), 1);
-        assert_eq!(g.citations[0].start, 0.0, "timing must come from the transcript");
+        assert_eq!(
+            g.citations[0].start, 0.0,
+            "timing must come from the transcript"
+        );
         assert!(!g.not_applicable);
     }
 
@@ -322,7 +328,11 @@ mod tests {
             summary: String::new(),
         };
         let card = agent().validate(out, &transcript()).unwrap();
-        assert_eq!(card.criteria.len(), 5, "scorecard shape must follow the rubric");
+        assert_eq!(
+            card.criteria.len(),
+            5,
+            "scorecard shape must follow the rubric"
+        );
         let missing = card.criteria.iter().find(|c| c.key == "empathy").unwrap();
         assert!(missing.not_applicable);
     }

@@ -24,7 +24,6 @@ use rusqlite::{params, Connection, OptionalExtension};
 use std::path::Path;
 use std::sync::Mutex;
 
-
 /// Read models for the UI. `camelCase` on the wire so the TypeScript side
 /// needs no field translation.
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
@@ -52,7 +51,6 @@ pub struct Stats {
     pub audio_secs: f64,
 }
 
-
 /// What the app resolved at startup. Surfaced so a missing model or binary
 /// produces a clear warning in the UI rather than an opaque failure later.
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
@@ -64,7 +62,6 @@ pub struct Startup {
     pub whisper_model_present: bool,
     pub english_only: bool,
 }
-
 
 /// The database both frontends use by default.
 ///
@@ -78,7 +75,8 @@ pub fn default_db_path() -> std::path::PathBuf {
         .map(std::path::PathBuf::from)
         .or_else(|| dirs_home().map(|h| h.join(".local/share")))
         .unwrap_or_else(|| std::path::PathBuf::from("."));
-    base.join("com.callanalyzer.desktop").join("call-analyzer.db")
+    base.join("com.callanalyzer.desktop")
+        .join("call-analyzer.db")
 }
 
 /// Where remote objects are cached before decoding.
@@ -183,9 +181,11 @@ impl Store {
     pub fn stage_of(&self, id: &CallId) -> Result<Option<CallStage>> {
         let conn = self.lock()?;
         let s: Option<String> = conn
-            .query_row("SELECT stage FROM calls WHERE id = ?1", [id.as_str()], |r| {
-                r.get(0)
-            })
+            .query_row(
+                "SELECT stage FROM calls WHERE id = ?1",
+                [id.as_str()],
+                |r| r.get(0),
+            )
             .optional()
             .map_err(|e| CaError::Storage(format!("stage_of: {e}")))?;
         Ok(s.and_then(|s| parse_stage(&s)))
@@ -280,9 +280,7 @@ impl Store {
             .prepare("SELECT id, stage FROM calls ORDER BY created_at")
             .map_err(|e| CaError::Storage(format!("prepare: {e}")))?;
         let rows = stmt
-            .query_map([], |r| {
-                Ok((r.get::<_, String>(0)?, r.get::<_, String>(1)?))
-            })
+            .query_map([], |r| Ok((r.get::<_, String>(0)?, r.get::<_, String>(1)?)))
             .map_err(|e| CaError::Storage(format!("query: {e}")))?;
 
         let mut out = Vec::new();
@@ -333,8 +331,11 @@ impl Store {
 
         // Replace segments wholesale — a re-transcribe must not leave the old
         // ones behind, and their ids are what citations resolve against.
-        tx.execute("DELETE FROM segments WHERE call_id = ?1", [t.call_id.as_str()])
-            .map_err(|e| CaError::Storage(format!("clear segments: {e}")))?;
+        tx.execute(
+            "DELETE FROM segments WHERE call_id = ?1",
+            [t.call_id.as_str()],
+        )
+        .map_err(|e| CaError::Storage(format!("clear segments: {e}")))?;
 
         for (i, s) in t.segments.iter().enumerate() {
             tx.execute(
@@ -457,7 +458,10 @@ impl Store {
                     call_id.as_str(),
                     token,
                     value,
-                    kinds.get(token).cloned().unwrap_or_else(|| "unknown".into())
+                    kinds
+                        .get(token)
+                        .cloned()
+                        .unwrap_or_else(|| "unknown".into())
                 ],
             )
             .map_err(|e| CaError::Storage(format!("insert redaction: {e}")))?;
@@ -540,8 +544,11 @@ impl Store {
         let tx = conn
             .transaction()
             .map_err(|e| CaError::Storage(format!("begin: {e}")))?;
-        tx.execute("DELETE FROM findings WHERE call_id = ?1", [call_id.as_str()])
-            .map_err(|e| CaError::Storage(format!("clear findings: {e}")))?;
+        tx.execute(
+            "DELETE FROM findings WHERE call_id = ?1",
+            [call_id.as_str()],
+        )
+        .map_err(|e| CaError::Storage(format!("clear findings: {e}")))?;
         for f in findings {
             tx.execute(
                 "INSERT INTO findings (id, call_id, agent, code, title, detail, severity, citations_json)
@@ -853,9 +860,9 @@ mod tests {
         let s = Store::in_memory().unwrap();
         let id = s.upsert_call(&call("k")).unwrap();
         let mut map = ca_privacy::RedactionMap::default();
-        map.entries
-            .insert("[PHONE_1]".into(), "9876543210".into());
-        s.save_redaction_map(&id, &map, &Default::default()).unwrap();
+        map.entries.insert("[PHONE_1]".into(), "9876543210".into());
+        s.save_redaction_map(&id, &map, &Default::default())
+            .unwrap();
 
         let back = s.load_redaction_map(&id).unwrap();
         assert_eq!(back.entries.get("[PHONE_1]").unwrap(), "9876543210");
@@ -889,7 +896,10 @@ mod tests {
         assert_eq!((i, o), (1000, 200));
         assert!((c - 0.01).abs() < 1e-9);
 
-        let payload = s.load_analysis(&id, AgentKind::QaScorecard).unwrap().unwrap();
+        let payload = s
+            .load_analysis(&id, AgentKind::QaScorecard)
+            .unwrap()
+            .unwrap();
         assert_eq!(payload["overall"], 82.0);
     }
 
@@ -911,7 +921,10 @@ mod tests {
         };
         s.save_analysis(&mk(50.0)).unwrap();
         s.save_analysis(&mk(90.0)).unwrap();
-        let payload = s.load_analysis(&id, AgentKind::QaScorecard).unwrap().unwrap();
+        let payload = s
+            .load_analysis(&id, AgentKind::QaScorecard)
+            .unwrap()
+            .unwrap();
         assert_eq!(payload["overall"], 90.0, "second run should win");
     }
 }

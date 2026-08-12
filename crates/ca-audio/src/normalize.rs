@@ -92,7 +92,10 @@ mod tests {
         let r = normalize_in_place(&mut s, 16_000);
         let after = measure_lufs(&s, 16_000).unwrap();
         assert!(r.gain_db.unwrap() > 0.0, "expected positive gain");
-        assert!(after > before, "loudness should increase: {before} -> {after}");
+        assert!(
+            after > before,
+            "loudness should increase: {before} -> {after}"
+        );
     }
 
     #[test]
@@ -102,7 +105,10 @@ mod tests {
         let r = normalize_in_place(&mut s, 16_000);
         let after = measure_lufs(&s, 16_000).unwrap();
         assert!(r.gain_db.unwrap() < 0.0, "expected negative gain");
-        assert!(after < before, "loudness should decrease: {before} -> {after}");
+        assert!(
+            after < before,
+            "loudness should decrease: {before} -> {after}"
+        );
     }
 
     #[test]

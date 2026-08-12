@@ -10,9 +10,10 @@ use rusqlite::Connection;
 
 /// Each entry runs once, in order, and is recorded in `schema_migrations`.
 /// Never edit a shipped migration — append a new one.
-const MIGRATIONS: &[(&str, &str)] = &[(
-    "0001_initial",
-    r#"
+const MIGRATIONS: &[(&str, &str)] = &[
+    (
+        "0001_initial",
+        r#"
 CREATE TABLE calls (
     id                  TEXT PRIMARY KEY,
     source_key          TEXT NOT NULL,
@@ -121,10 +122,10 @@ CREATE TABLE jobs (
     finished_at TEXT
 );
 "#,
-),
-(
-    "0002_run_history",
-    r#"
+    ),
+    (
+        "0002_run_history",
+        r#"
 -- What happened, and when, across every batch ever started.
 --
 -- The pipeline already records where each call *currently* is, but that is a
@@ -171,10 +172,10 @@ CREATE TABLE run_items (
 
 CREATE INDEX idx_run_items_run ON run_items(run_id, updated_at);
 "#,
-),
-(
-    "0003_settings",
-    r#"
+    ),
+    (
+        "0003_settings",
+        r#"
 -- User configuration, as JSON values under named keys.
 --
 -- Deliberately a key/value table rather than typed columns: settings gain
@@ -187,10 +188,10 @@ CREATE TABLE settings (
     updated_at TEXT NOT NULL
 );
 "#,
-),
-(
-    "0004_merge_duplicate_local_paths",
-    r#"
+    ),
+    (
+        "0004_merge_duplicate_local_paths",
+        r#"
 -- Collapse recordings that were registered more than once.
 --
 -- Identity is (source_name, source_key), and source_key used to be the path
@@ -240,7 +241,8 @@ UPDATE calls
    AND media_path NOT LIKE 'https://%'
    AND media_path LIKE '%/%';
 "#,
-)];
+    ),
+];
 
 pub fn open(path: &std::path::Path) -> Result<Connection> {
     let conn = Connection::open(path)
@@ -352,7 +354,6 @@ mod tests {
         let _ = std::fs::remove_dir_all(&dir);
     }
 
-
     #[test]
     fn duplicate_local_paths_are_merged_keeping_the_processed_row() {
         // The same recording registered through two entry points: one spelling
@@ -368,7 +369,11 @@ mod tests {
         .unwrap();
 
         // Re-running migrations applies 0004 to the rows just inserted.
-        conn.execute("DELETE FROM schema_migrations WHERE name = '0004_merge_duplicate_local_paths'", []).unwrap();
+        conn.execute(
+            "DELETE FROM schema_migrations WHERE name = '0004_merge_duplicate_local_paths'",
+            [],
+        )
+        .unwrap();
         migrate(&conn).unwrap();
 
         let ids: Vec<String> = conn
@@ -398,11 +403,17 @@ mod tests {
             [],
         )
         .unwrap();
-        conn.execute("DELETE FROM schema_migrations WHERE name = '0004_merge_duplicate_local_paths'", []).unwrap();
+        conn.execute(
+            "DELETE FROM schema_migrations WHERE name = '0004_merge_duplicate_local_paths'",
+            [],
+        )
+        .unwrap();
         migrate(&conn).unwrap();
 
         let (key, path): (String, String) = conn
-            .query_row("SELECT source_key, media_path FROM calls", [], |r| Ok((r.get(0)?, r.get(1)?)))
+            .query_row("SELECT source_key, media_path FROM calls", [], |r| {
+                Ok((r.get(0)?, r.get(1)?))
+            })
             .unwrap();
         assert!(key.starts_with("https://"), "got {key}");
         assert!(path.starts_with("https://"), "got {path}");
@@ -452,7 +463,8 @@ mod tests {
             [],
         )
         .unwrap();
-        let ins = "INSERT INTO analyses (id, call_id, agent, payload_json, provider, model, created_at)
+        let ins =
+            "INSERT INTO analyses (id, call_id, agent, payload_json, provider, model, created_at)
                    VALUES (?1,'c1','qa_scorecard','{}','p','m','t')";
         conn.execute(ins, ["a1"]).unwrap();
         assert!(conn.execute(ins, ["a2"]).is_err());

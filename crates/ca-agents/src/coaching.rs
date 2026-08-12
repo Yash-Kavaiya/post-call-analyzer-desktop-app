@@ -52,7 +52,9 @@ impl CoachingAgent {
         transcript: &Transcript,
     ) -> Result<(CoachingReport, ChatResponse)> {
         if transcript.segments.is_empty() {
-            return Err(CaError::Config("cannot coach on an empty transcript".into()));
+            return Err(CaError::Config(
+                "cannot coach on an empty transcript".into(),
+            ));
         }
 
         let req = ChatRequest::new(vec![
@@ -227,7 +229,10 @@ mod tests {
         let r = CoachingAgent.validate(out, &transcript());
         assert_eq!(r.improvements.len(), 1);
         assert_eq!(r.improvements[0].citations[0].start, 10.0);
-        assert_eq!(r.improvements[0].suggested_phrase.as_deref(), Some("try saying this"));
+        assert_eq!(
+            r.improvements[0].suggested_phrase.as_deref(),
+            Some("try saying this")
+        );
     }
 
     #[test]
@@ -238,7 +243,10 @@ mod tests {
             improvements: vec![note("vague", None, "be better")],
             ..Default::default()
         };
-        assert!(CoachingAgent.validate(out, &transcript()).improvements.is_empty());
+        assert!(CoachingAgent
+            .validate(out, &transcript())
+            .improvements
+            .is_empty());
     }
 
     #[test]
@@ -247,7 +255,10 @@ mod tests {
             improvements: vec![note("invented", Some("seg_nope"), "do something")],
             ..Default::default()
         };
-        assert!(CoachingAgent.validate(out, &transcript()).improvements.is_empty());
+        assert!(CoachingAgent
+            .validate(out, &transcript())
+            .improvements
+            .is_empty());
     }
 
     #[test]
@@ -258,7 +269,10 @@ mod tests {
             improvements: vec![note("interrupted", Some("seg_2"), "   ")],
             ..Default::default()
         };
-        assert!(CoachingAgent.validate(out, &transcript()).improvements.is_empty());
+        assert!(CoachingAgent
+            .validate(out, &transcript())
+            .improvements
+            .is_empty());
     }
 
     #[test]
@@ -278,7 +292,10 @@ mod tests {
     fn an_unknown_severity_falls_back_rather_than_dropping_the_note() {
         let mut n = note("interrupted", Some("seg_2"), "let them finish");
         n.severity = "catastrophic".into();
-        let out = ModelOutput { improvements: vec![n], ..Default::default() };
+        let out = ModelOutput {
+            improvements: vec![n],
+            ..Default::default()
+        };
         let r = CoachingAgent.validate(out, &transcript());
         assert_eq!(r.improvements.len(), 1);
         assert_eq!(r.improvements[0].severity, Severity::Medium);
@@ -288,7 +305,10 @@ mod tests {
     fn an_empty_suggested_phrase_becomes_none() {
         let mut n = note("interrupted", Some("seg_2"), "let them finish");
         n.suggested_phrase = Some("   ".into());
-        let out = ModelOutput { improvements: vec![n], ..Default::default() };
+        let out = ModelOutput {
+            improvements: vec![n],
+            ..Default::default()
+        };
         let r = CoachingAgent.validate(out, &transcript());
         assert!(r.improvements[0].suggested_phrase.is_none());
     }

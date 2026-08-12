@@ -77,7 +77,12 @@ impl AppSettings {
             return Err("Choose a model.".into());
         }
         if self.provider == ProviderKind::OpenAiCompatible
-            && self.base_url.as_deref().map(str::trim).unwrap_or("").is_empty()
+            && self
+                .base_url
+                .as_deref()
+                .map(str::trim)
+                .unwrap_or("")
+                .is_empty()
         {
             return Err("A custom endpoint needs a base URL, e.g. https://host/v1".into());
         }
@@ -89,8 +94,7 @@ impl AppSettings {
         // accident on a vendor endpoint.
         if !self.redact_before_send && !self.provider.is_local() {
             return Err(
-                "Redaction can only be turned off for a provider running on this machine."
-                    .into(),
+                "Redaction can only be turned off for a provider running on this machine.".into(),
             );
         }
         Ok(())
@@ -134,7 +138,11 @@ pub fn suggested_models(kind: ProviderKind) -> &'static [&'static str] {
         ProviderKind::Ollama => &["llama3.1", "qwen2.5", "mistral", "phi4"],
         ProviderKind::LmStudio => &["local-model"],
         ProviderKind::OpenAiCompatible => &[],
-        ProviderKind::Anthropic => &["claude-sonnet-5", "claude-opus-5", "claude-haiku-4-5-20251001"],
+        ProviderKind::Anthropic => &[
+            "claude-sonnet-5",
+            "claude-opus-5",
+            "claude-haiku-4-5-20251001",
+        ],
         ProviderKind::Gemini => &["gemini-2.5-pro", "gemini-2.5-flash"],
     }
 }
@@ -185,7 +193,10 @@ pub fn provider_catalogue() -> Vec<ProviderInfo> {
             env_var: kind.env_var().map(str::to_string),
             endpoint: endpoint_for(kind).to_string(),
             default_model: default_model_for(kind).to_string(),
-            suggested_models: suggested_models(kind).iter().map(|s| s.to_string()).collect(),
+            suggested_models: suggested_models(kind)
+                .iter()
+                .map(|s| s.to_string())
+                .collect(),
             key_source: secrets::key_source(kind),
         })
         .collect()
@@ -290,7 +301,10 @@ mod tests {
     #[test]
     fn absurd_concurrency_is_rejected() {
         for n in [0usize, 33] {
-            let s = AppSettings { concurrency: n, ..AppSettings::default() };
+            let s = AppSettings {
+                concurrency: n,
+                ..AppSettings::default()
+            };
             assert!(s.validate().is_err(), "{n} was accepted");
         }
     }

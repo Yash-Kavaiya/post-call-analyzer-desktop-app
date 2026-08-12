@@ -185,14 +185,22 @@ mod tests {
         ModelOutput {
             answer: answer.into(),
             citations: cite
-                .map(|c| vec![ModelCitation { segment_id: c.into(), quote: Some("q".into()) }])
+                .map(|c| {
+                    vec![ModelCitation {
+                        segment_id: c.into(),
+                        quote: Some("q".into()),
+                    }]
+                })
                 .unwrap_or_default(),
         }
     }
 
     #[test]
     fn a_cited_answer_is_grounded_and_carries_transcript_timings() {
-        let a = CallCopilot.validate(output("They were charged twice.", Some("seg_2")), &transcript());
+        let a = CallCopilot.validate(
+            output("They were charged twice.", Some("seg_2")),
+            &transcript(),
+        );
         assert!(a.grounded);
         assert_eq!(a.citations.len(), 1);
         assert_eq!(a.citations[0].start, 7.0);
@@ -210,7 +218,10 @@ mod tests {
 
     #[test]
     fn a_fabricated_citation_does_not_make_an_answer_look_grounded() {
-        let a = CallCopilot.validate(output("They said so at the end.", Some("seg_99")), &transcript());
+        let a = CallCopilot.validate(
+            output("They said so at the end.", Some("seg_99")),
+            &transcript(),
+        );
         assert!(a.citations.is_empty());
         assert!(!a.grounded, "an invented citation passed as evidence");
     }
@@ -220,9 +231,15 @@ mod tests {
         struct NeverCalled;
         #[async_trait::async_trait]
         impl LlmProvider for NeverCalled {
-            fn name(&self) -> &str { "never" }
-            fn model(&self) -> &str { "never" }
-            fn capabilities(&self) -> ca_core::provider::Caps { Default::default() }
+            fn name(&self) -> &str {
+                "never"
+            }
+            fn model(&self) -> &str {
+                "never"
+            }
+            fn capabilities(&self) -> ca_core::provider::Caps {
+                Default::default()
+            }
             async fn complete(&self, _: ChatRequest) -> Result<ChatResponse> {
                 panic!("asked the model an empty question");
             }
@@ -240,9 +257,15 @@ mod tests {
         struct NeverCalled;
         #[async_trait::async_trait]
         impl LlmProvider for NeverCalled {
-            fn name(&self) -> &str { "never" }
-            fn model(&self) -> &str { "never" }
-            fn capabilities(&self) -> ca_core::provider::Caps { Default::default() }
+            fn name(&self) -> &str {
+                "never"
+            }
+            fn model(&self) -> &str {
+                "never"
+            }
+            fn capabilities(&self) -> ca_core::provider::Caps {
+                Default::default()
+            }
             async fn complete(&self, _: ChatRequest) -> Result<ChatResponse> {
                 panic!("asked about a call with no transcript");
             }
@@ -264,9 +287,15 @@ mod tests {
         struct Capture(Mutex<Vec<Message>>);
         #[async_trait::async_trait]
         impl LlmProvider for Capture {
-            fn name(&self) -> &str { "capture" }
-            fn model(&self) -> &str { "capture-1" }
-            fn capabilities(&self) -> ca_core::provider::Caps { Default::default() }
+            fn name(&self) -> &str {
+                "capture"
+            }
+            fn model(&self) -> &str {
+                "capture-1"
+            }
+            fn capabilities(&self) -> ca_core::provider::Caps {
+                Default::default()
+            }
             async fn complete(&self, req: ChatRequest) -> Result<ChatResponse> {
                 *self.0.lock().unwrap() = req.messages.clone();
                 Ok(ChatResponse {
@@ -282,7 +311,11 @@ mod tests {
         // More history than the cap, so the trim is exercised.
         let history: Vec<CopilotTurn> = (0..20)
             .map(|i| CopilotTurn {
-                role: if i % 2 == 0 { "user".into() } else { "assistant".into() },
+                role: if i % 2 == 0 {
+                    "user".into()
+                } else {
+                    "assistant".into()
+                },
                 content: format!("turn {i}"),
             })
             .collect();
@@ -294,10 +327,17 @@ mod tests {
             .unwrap();
 
         let sent = p.0.lock().unwrap().clone();
-        let joined: String = sent.iter().map(|m| m.content.clone()).collect::<Vec<_>>().join("\n");
+        let joined: String = sent
+            .iter()
+            .map(|m| m.content.clone())
+            .collect::<Vec<_>>()
+            .join("\n");
 
         assert!(joined.contains("seg_1"), "the transcript was not re-sent");
-        assert!(joined.contains("turn 19"), "the most recent history was dropped");
+        assert!(
+            joined.contains("turn 19"),
+            "the most recent history was dropped"
+        );
         assert!(!joined.contains("turn 0"), "history was not bounded");
     }
 
@@ -308,12 +348,22 @@ mod tests {
         struct Capture(Mutex<String>);
         #[async_trait::async_trait]
         impl LlmProvider for Capture {
-            fn name(&self) -> &str { "capture" }
-            fn model(&self) -> &str { "capture-1" }
-            fn capabilities(&self) -> ca_core::provider::Caps { Default::default() }
+            fn name(&self) -> &str {
+                "capture"
+            }
+            fn model(&self) -> &str {
+                "capture-1"
+            }
+            fn capabilities(&self) -> ca_core::provider::Caps {
+                Default::default()
+            }
             async fn complete(&self, req: ChatRequest) -> Result<ChatResponse> {
-                *self.0.lock().unwrap() =
-                    req.messages.iter().map(|m| m.content.clone()).collect::<Vec<_>>().join("\n");
+                *self.0.lock().unwrap() = req
+                    .messages
+                    .iter()
+                    .map(|m| m.content.clone())
+                    .collect::<Vec<_>>()
+                    .join("\n");
                 Ok(ChatResponse {
                     content: r#"{"answer":"ok","citations":[]}"#.into(),
                     input_tokens: 1,
@@ -329,10 +379,16 @@ mod tests {
         t.segments[1].redacted_text = Some("my number is [PHONE_1]".into());
 
         let p = Capture(Mutex::new(String::new()));
-        CallCopilot.ask(&p, &t, "what is their number?", &[]).await.unwrap();
+        CallCopilot
+            .ask(&p, &t, "what is their number?", &[])
+            .await
+            .unwrap();
 
         let sent = p.0.lock().unwrap().clone();
         assert!(sent.contains("[PHONE_1]"));
-        assert!(!sent.contains("9876543210"), "raw PII reached the copilot prompt");
+        assert!(
+            !sent.contains("9876543210"),
+            "raw PII reached the copilot prompt"
+        );
     }
 }

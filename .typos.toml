@@ -1,0 +1,43 @@
+# Configuration for `typos` (https://github.com/crate-ci/typos).
+#
+# Runs in the nightly workflow rather than the PR gate: a spell checker that
+# blocks a merge on a domain term it has not been taught is a tax on every
+# contributor, while a nightly report costs nobody anything.
+
+[files]
+extend-exclude = [
+    "Cargo.lock",
+    "package-lock.json",
+    "vendor/**",
+    "models/**",
+    "target/**",
+    "node_modules/**",
+    "**/dist/**",
+    "apps/desktop/src-tauri/gen/**",
+    "apps/desktop/src-tauri/icons/**",
+    "*.svg",
+    "*.min.js",
+]
+
+[default]
+# Identifiers come from crate names and external APIs and are not ours to spell.
+check-filename = true
+
+[default.extend-words]
+# Speaker diarization — the whole point of ca-diarize.
+diarize = "diarize"
+diarization = "diarization"
+# Crate and product names that are not English words.
+nnnoiseless = "nnnoiseless"
+symphonia = "symphonia"
+ebur = "ebur"
+rustls = "rustls"
+tauri = "tauri"
+oxlint = "oxlint"
+wavesurfer = "wavesurfer"
+realfft = "realfft"
+rusqlite = "rusqlite"
+# HTTP defines this header with the historical misspelling.
+referer = "referer"
+# Abbreviations that appear as identifiers.
+ser = "ser"

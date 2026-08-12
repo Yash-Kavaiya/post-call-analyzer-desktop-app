@@ -85,9 +85,8 @@ fn build_level(samples: &[f32], sample_rate: u32, bucket_secs: f64) -> Option<Pe
         window[..take].copy_from_slice(&chunk[..take]);
         // Hann window to keep spectral leakage from smearing the estimate.
         for (i, v) in window.iter_mut().enumerate().take(take) {
-            let w = 0.5
-                - 0.5
-                    * (2.0 * std::f32::consts::PI * i as f32 / (fft_size as f32 - 1.0)).cos();
+            let w =
+                0.5 - 0.5 * (2.0 * std::f32::consts::PI * i as f32 / (fft_size as f32 - 1.0)).cos();
             *v *= w;
         }
 
@@ -209,7 +208,10 @@ mod tests {
         // Both normalise to their own max, so compare raw discrimination via
         // the coarse level's shape instead: in-band must not be silent.
         assert!(mean(&speech) > 0.0);
-        assert!(mean(&speech) >= mean(&hiss) * 0.5, "speech band under-weighted");
+        assert!(
+            mean(&speech) >= mean(&hiss) * 0.5,
+            "speech band under-weighted"
+        );
     }
 
     #[test]

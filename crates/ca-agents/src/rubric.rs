@@ -64,7 +64,10 @@ impl Rubric {
         let mut seen = std::collections::HashSet::new();
         for c in &self.criteria {
             if !seen.insert(&c.key) {
-                return Err(CaError::Config(format!("duplicate criterion key `{}`", c.key)));
+                return Err(CaError::Config(format!(
+                    "duplicate criterion key `{}`",
+                    c.key
+                )));
             }
             if c.weight < 0.0 {
                 return Err(CaError::Config(format!(

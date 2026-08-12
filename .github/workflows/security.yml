@@ -1,0 +1,241 @@
+# ============================================================
+# Security — supply chain, secrets, and static analysis.
+#
+# Split out from ci.yml because these checks answer to a different clock.
+# A dependency that was safe when a PR merged can be vulnerable a week later
+# without a single line changing, so everything here also runs on a schedule
+# rather than only in response to a commit.
+#
+# What this product actually handles makes that worth doing properly: call
+# recordings, transcripts, PII that ca-privacy is responsible for redacting,
+# and BYOK provider credentials held in the Windows Credential Manager.
+# ============================================================
+name: Security
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+  # Required checks must also report inside a merge queue, or the queue stalls
+  # waiting for a status that will never arrive.
+  merge_group:
+  schedule:
+    # 05:00 UTC on Mondays. Catches advisories published against dependencies
+    # that nobody has touched — the case a commit-triggered run never sees.
+    - cron: "0 5 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: security-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  # ----------------------------------------------------------
+  # Secrets. The highest-severity thing that can land in this repo is a live
+  # provider key, and .env.example plus a .gitignore entry are prevention,
+  # not detection.
+  # ----------------------------------------------------------
+  secrets:
+    name: Secret scan
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # gitleaks scans history, not just the working tree — a key that was
+          # committed and then removed is still a leaked key.
+          fetch-depth: 0
+
+      - name: gitleaks
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # Only organisation-owned repositories need a licence key. If this
+          # repository is transferred to an org, add GITLEAKS_LICENSE as a
+          # secret; until then the action runs unlicensed and free.
+          GITLEAKS_LICENSE: ${{ secrets.GITLEAKS_LICENSE }}
+
+  # ----------------------------------------------------------
+  # Rust supply chain. Each check runs as its own job so the summary says
+  # which policy failed without anyone opening the log.
+  # ----------------------------------------------------------
+  cargo-deny:
+    name: cargo-deny (${{ matrix.check }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        # advisories — known vulnerabilities and yanked releases
+        # bans       — the rustls-not-openssl and no-ffmpeg rules in deny.toml
+        # licenses   — the allowlist that keeps GPL out of a shipped binary
+        # sources    — nothing from an unaudited registry or a git URL
+        check: [advisories, bans, licenses, sources]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: cargo deny check ${{ matrix.check }}
+        uses: EmbarkStudios/cargo-deny-action@v2
+        with:
+          command: check ${{ matrix.check }}
+          # The action resolves with --all-features by default, which is the
+          # conservative choice here: it examines every dependency any feature
+          # combination could pull in, not only the ones today's build uses.
+
+  # ----------------------------------------------------------
+  # Node supply chain.
+  # ----------------------------------------------------------
+  npm-audit:
+    name: npm audit
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: apps/desktop/ui
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+          cache: npm
+          cache-dependency-path: apps/desktop/ui/package-lock.json
+
+      - name: Audit shipped dependencies
+        # Blocking. These end up inside the installer that users run, so a
+        # high-severity advisory here is a defect in the product.
+        run: npm audit --omit=dev --audit-level=high
+
+      - name: Audit build-time dependencies
+        # Informational. A vulnerability in vite or tsc affects whoever runs
+        # the build, not whoever runs the app, and the npm dev tree produces
+        # enough noise that failing on it would train people to ignore this
+        # workflow entirely. It still gets reported.
+        continue-on-error: true
+        run: npm audit --audit-level=high
+
+  # ----------------------------------------------------------
+  # New dependencies introduced by a PR, reviewed before they merge.
+  # ----------------------------------------------------------
+  dependency-review:
+    name: Dependency review
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/dependency-review-action@v4
+        with:
+          fail-on-severity: high
+          # Mirrors the allowlist in deny.toml. Stated again here because
+          # this check sees the npm tree, which cargo-deny does not.
+          deny-licenses: GPL-2.0, GPL-3.0, AGPL-3.0, LGPL-2.1, LGPL-3.0, SSPL-1.0
+          comment-summary-in-pr: on-failure
+
+  # ----------------------------------------------------------
+  # Static analysis of the frontend. The UI renders transcript text and PII,
+  # so injection and unsafe-DOM findings matter here more than the size of
+  # the codebase suggests.
+  #
+  # Rust is not scanned by CodeQL: clippy runs with -D warnings in ci.yml and
+  # cargo-deny covers the dependency side, which is where the Rust risk is.
+  # ----------------------------------------------------------
+  codeql:
+    name: CodeQL (TypeScript)
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: read
+      security-events: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Initialize CodeQL
+        uses: github/codeql-action/init@v3
+        with:
+          languages: javascript-typescript
+          queries: security-and-quality
+
+      - name: Analyze
+        uses: github/codeql-action/analyze@v3
+        with:
+          category: /language:javascript-typescript
+
+  # ----------------------------------------------------------
+  # The workflows themselves are code, and they run with a token.
+  # ----------------------------------------------------------
+  workflow-lint:
+    name: Workflow lint
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: actionlint
+        # Catches invalid expressions, unknown contexts, bad runner labels and
+        # shellcheck findings inside `run:` blocks — mistakes that otherwise
+        # only surface as a failed run on main.
+        uses: raven-actions/actionlint@v1
+        with:
+          fail-on-error: true
+
+  # ----------------------------------------------------------
+  # OpenSSF Scorecard. Grades the repository's own security posture: branch
+  # protection, pinned dependencies, token permissions, release signing.
+  # Scheduled only — it measures repository settings, which a pull request
+  # cannot change.
+  # ----------------------------------------------------------
+  scorecard:
+    name: OpenSSF Scorecard
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+      security-events: write
+      id-token: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Run analysis
+        uses: ossf/scorecard-action@v2
+        with:
+          results_file: scorecard.sarif
+          results_format: sarif
+          publish_results: false
+
+      - name: Upload results
+        # Requires a public repository, or GitHub Advanced Security on a
+        # private one. Non-fatal so a private fork does not fail the workflow.
+        continue-on-error: true
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: scorecard.sarif
+          category: scorecard
+
+  security-success:
+    name: Security
+    if: always()
+    needs: [secrets, cargo-deny, npm-audit, dependency-review, codeql, workflow-lint]
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Verify no required job failed
+        run: |
+          echo "Job results: ${{ join(needs.*.result, ', ') }}"
+          if [ "${{ contains(needs.*.result, 'failure') }}" = "true" ] \
+            || [ "${{ contains(needs.*.result, 'cancelled') }}" = "true" ]; then
+            echo "::error::At least one security check did not pass."
+            exit 1
+          fi
+          echo "All security checks passed."

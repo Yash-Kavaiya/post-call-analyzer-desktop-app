@@ -114,9 +114,8 @@ impl LocalFolderSource {
     }
 
     fn walk(&self, dir: &Path, out: &mut Vec<SourceItem>) -> Result<()> {
-        let entries = std::fs::read_dir(dir).map_err(|e| {
-            CaError::Config(format!("cannot read {}: {e}", dir.display()))
-        })?;
+        let entries = std::fs::read_dir(dir)
+            .map_err(|e| CaError::Config(format!("cannot read {}: {e}", dir.display())))?;
 
         for entry in entries.flatten() {
             let path = entry.path();

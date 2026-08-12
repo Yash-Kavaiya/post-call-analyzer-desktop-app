@@ -1,0 +1,31 @@
+# https://editorconfig.org
+# Keeps editors in agreement with rustfmt and the UI toolchain so the
+# formatting gate in CI never fires on whitespace an editor introduced.
+root = true
+
+[*]
+charset = utf-8
+end_of_line = lf
+insert_final_newline = true
+trim_trailing_whitespace = true
+indent_style = space
+indent_size = 4
+
+[*.{ts,tsx,js,jsx,json,css,html,yml,yaml}]
+indent_size = 2
+
+[*.md]
+# Two trailing spaces are a hard line break in Markdown.
+trim_trailing_whitespace = false
+
+[*.{ps1,cmd,bat}]
+end_of_line = crlf
+
+[*.ps1]
+# Windows PowerShell 5.1 decodes a BOM-less file as ANSI, so a non-ASCII
+# character in a string turns into bytes it reads as smart quotes and the
+# script fails to parse. The BOM is what tells it the file is UTF-8.
+charset = utf-8-bom
+
+[Makefile]
+indent_style = tab

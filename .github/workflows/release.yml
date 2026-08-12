@@ -1,0 +1,342 @@
+# ============================================================
+# Release — cut a versioned build of the desktop app and the CLI.
+#
+# Triggered by pushing a tag:  git tag v0.2.0 && git push origin v0.2.0
+#
+# The order of jobs is the order of trust. Nothing is built until the version
+# numbers agree; nothing is published until the tests pass on the exact commit
+# being released. A release that skips its own gate is just a build.
+# ============================================================
+name: Release
+
+on:
+  push:
+    tags:
+      - "v[0-9]+.[0-9]+.[0-9]+"
+      - "v[0-9]+.[0-9]+.[0-9]+-*"
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: "Build and check everything, but do not publish a release"
+        type: boolean
+        default: true
+
+permissions:
+  contents: read
+
+concurrency:
+  # Never cancel a release in flight — a half-uploaded release is worse than
+  # a slow one.
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  CARGO_TERM_COLOR: always
+  CARGO_INCREMENTAL: 0
+  CARGO_NET_RETRY: 10
+  RUSTUP_MAX_RETRIES: 10
+  NODE_VERSION: "24"
+
+jobs:
+  # ----------------------------------------------------------
+  # Three places record the version and all three ship to users: the tag in
+  # the URL people download from, the workspace version compiled into the
+  # binaries, and the version Windows shows in Add/Remove Programs. They
+  # drift silently, and the mismatch is only discovered by a user reporting
+  # that the installed version does not match what they downloaded.
+  # ----------------------------------------------------------
+  verify-version:
+    name: Verify version
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    outputs:
+      version: ${{ steps.check.outputs.version }}
+      prerelease: ${{ steps.check.outputs.prerelease }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Compare tag, Cargo.toml and tauri.conf.json
+        id: check
+        run: |
+          set -euo pipefail
+
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            # A manual run has no tag, so the workspace version is the source
+            # of truth and the run is only ever a rehearsal.
+            version=$(grep -m1 '^version' Cargo.toml | sed -E 's/.*"(.*)".*/\1/')
+            echo "Manual run against workspace version $version"
+          else
+            version="${GITHUB_REF_NAME#v}"
+          fi
+
+          cargo_version=$(grep -m1 '^version' Cargo.toml | sed -E 's/.*"(.*)".*/\1/')
+          tauri_version=$(jq -r .version apps/desktop/src-tauri/tauri.conf.json)
+
+          echo "tag/input:        $version"
+          echo "Cargo.toml:       $cargo_version"
+          echo "tauri.conf.json:  $tauri_version"
+
+          fail=0
+          if [ "$version" != "$cargo_version" ]; then
+            echo "::error file=Cargo.toml::workspace.package.version is $cargo_version but the release is $version."
+            fail=1
+          fi
+          if [ "$version" != "$tauri_version" ]; then
+            echo "::error file=apps/desktop/src-tauri/tauri.conf.json::version is $tauri_version but the release is $version."
+            fail=1
+          fi
+          [ "$fail" -eq 0 ] || exit 1
+
+          # A hyphen marks a pre-release under semver: v1.0.0-rc.1.
+          if [[ "$version" == *-* ]]; then
+            echo "prerelease=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "prerelease=false" >> "$GITHUB_OUTPUT"
+          fi
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+
+      - name: Confirm the lockfile matches the manifests
+        # A release built with --locked must have a lockfile that already
+        # agrees with Cargo.toml, or the build fails halfway through.
+        run: cargo metadata --locked --format-version 1 > /dev/null
+
+  # ----------------------------------------------------------
+  # The release gate. Deliberately a full test run rather than a lookup of
+  # whether CI passed on this commit: a tag can be moved, and CI results can
+  # predate a force-push.
+  # ----------------------------------------------------------
+  verify-tests:
+    name: Verify tests
+    needs: verify-version
+    runs-on: windows-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          key: release-verify
+
+      - name: Install cargo-nextest
+        uses: taiki-e/install-action@v2
+        with:
+          tool: cargo-nextest
+
+      - name: Lint
+        run: cargo clippy --workspace --all-targets --locked -- -D warnings
+
+      - name: Test
+        run: cargo nextest run --workspace --all-targets --locked --profile ci
+
+      - name: Doctests
+        run: cargo test --doc --workspace --locked
+
+  # ----------------------------------------------------------
+  # Build. One job, because the CLI build warms the compilation cache the
+  # bundler then reuses; splitting them would compile the workspace twice.
+  # ----------------------------------------------------------
+  build:
+    name: Build Windows artifacts
+    needs: [verify-version, verify-tests]
+    runs-on: windows-latest
+    timeout-minutes: 90
+    permissions:
+      contents: read
+      id-token: write
+      attestations: write
+    env:
+      VERSION: ${{ needs.verify-version.outputs.version }}
+      # Declared at job level so the signing step's `if:` can read it. A
+      # variable set in a step's own `env:` block is not visible to that
+      # step's condition.
+      WINDOWS_CERTIFICATE: ${{ secrets.WINDOWS_CERTIFICATE }}
+      WINDOWS_CERTIFICATE_PASSWORD: ${{ secrets.WINDOWS_CERTIFICATE_PASSWORD }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          key: release-build
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: |
+            apps/desktop/ui/package-lock.json
+            apps/desktop/package-lock.json
+
+      - name: Install UI dependencies
+        working-directory: apps/desktop/ui
+        run: npm ci
+
+      - name: Install Tauri CLI
+        working-directory: apps/desktop
+        run: npm ci
+
+      - name: Build the CLI
+        run: cargo build --release --locked --package ca-cli
+
+      - name: Build the installers
+        working-directory: apps/desktop
+        run: npm run build
+
+      # --------------------------------------------------------
+      # Code signing. Optional, and skipped entirely when the certificate
+      # secrets are absent, so a fork can still cut a build.
+      #
+      # Unsigned Windows installers trigger a SmartScreen warning that most
+      # users read as "this is malware", so this matters more for adoption
+      # than its size here suggests. For signing the binaries *inside* the
+      # bundle as well, set bundle.windows.certificateThumbprint in
+      # tauri.conf.json — this step only signs the installers themselves.
+      # --------------------------------------------------------
+      - name: Sign the installers
+        if: env.WINDOWS_CERTIFICATE != ''
+        run: |
+          $ErrorActionPreference = "Stop"
+
+          $signtool = Get-ChildItem `
+            -Path "${env:ProgramFiles(x86)}\Windows Kits\10\bin\*\x64\signtool.exe" |
+            Sort-Object FullName -Descending |
+            Select-Object -First 1 -ExpandProperty FullName
+          if (-not $signtool) { throw "signtool.exe not found in the Windows SDK." }
+
+          $pfx = Join-Path $env:RUNNER_TEMP "cert.pfx"
+          [IO.File]::WriteAllBytes($pfx, [Convert]::FromBase64String($env:WINDOWS_CERTIFICATE))
+
+          Get-ChildItem -Path target\release\bundle -Include *.msi, *.exe -Recurse | ForEach-Object {
+            & $signtool sign /f $pfx /p $env:WINDOWS_CERTIFICATE_PASSWORD `
+              /fd SHA256 /tr http://timestamp.digicert.com /td SHA256 $_.FullName
+            if ($LASTEXITCODE -ne 0) { throw "Signing failed for $($_.Name)" }
+          }
+
+          Remove-Item $pfx -Force
+
+      # --------------------------------------------------------
+      # Collect everything a user or an auditor might need.
+      # --------------------------------------------------------
+      - name: Stage release assets
+        run: |
+          $ErrorActionPreference = "Stop"
+          New-Item -ItemType Directory -Path dist -Force | Out-Null
+
+          Copy-Item target\release\bundle\msi\*.msi   dist\ -ErrorAction SilentlyContinue
+          Copy-Item target\release\bundle\nsis\*.exe  dist\ -ErrorAction SilentlyContinue
+          Copy-Item target\release\ca.exe             "dist\ca-$env:VERSION-x86_64-pc-windows-msvc.exe"
+
+          $assets = Get-ChildItem dist -File
+          if ($assets.Count -lt 2) {
+            throw "Expected the installers and the CLI in dist, found $($assets.Count) file(s)."
+          }
+          $assets | Format-Table Name, Length
+
+      - name: Generate SBOM
+        # A software bill of materials is what turns "are we affected by this
+        # new CVE?" from an investigation into a lookup.
+        uses: anchore/sbom-action@v0
+        with:
+          path: .
+          format: cyclonedx-json
+          artifact-name: sbom.cyclonedx.json
+          output-file: dist/sbom.cyclonedx.json
+
+      - name: Compute checksums
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd dist
+          find . -maxdepth 1 -type f -printf '%P\n' | sort | xargs -r sha256sum > SHA256SUMS
+          cat SHA256SUMS
+
+      - name: Attest build provenance
+        # Records, in a signed and publicly verifiable form, that these exact
+        # bytes were produced by this workflow from this commit. A user can
+        # check it with:  gh attestation verify <file> --repo <owner>/<repo>
+        uses: actions/attest-build-provenance@v2
+        with:
+          subject-path: |
+            dist/*.msi
+            dist/*.exe
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-assets
+          path: dist/*
+          if-no-files-found: error
+          retention-days: 30
+
+  # ----------------------------------------------------------
+  # Publish. Separate from the build so a failure here can be retried without
+  # rebuilding, and so the build job never needs write access to the repo.
+  # ----------------------------------------------------------
+  publish:
+    name: Publish release
+    needs: [verify-version, build]
+    # A tag push always publishes. A manual run publishes only when the
+    # operator explicitly cleared the dry-run box.
+    if: >-
+      github.event_name == 'push' ||
+      (github.event_name == 'workflow_dispatch' && !inputs.dry_run)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: release-assets
+          path: dist
+
+      - name: List assets
+        run: ls -lh dist
+
+      - name: Create the GitHub release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v${{ needs.verify-version.outputs.version }}
+          name: Call Analyzer v${{ needs.verify-version.outputs.version }}
+          draft: false
+          prerelease: ${{ needs.verify-version.outputs.prerelease == 'true' }}
+          # Categorised by .github/release.yml.
+          generate_release_notes: true
+          files: dist/*
+          fail_on_unmatched_files: true
+          body: |
+            ## Install
+
+            Download the `.msi` (or the `.exe` NSIS installer) below and run it.
+            Windows x86_64 only.
+
+            The `ca-*.exe` asset is the standalone headless CLI — no installer,
+            no desktop app required.
+
+            ## Verify what you downloaded
+
+            ```powershell
+            # Checksums
+            (Get-FileHash .\<file> -Algorithm SHA256).Hash.ToLower()
+            # compare against SHA256SUMS below
+
+            # Build provenance — proves these bytes came from this repository
+            gh attestation verify .\<file> --repo ${{ github.repository }}
+            ```
+
+            `sbom.cyclonedx.json` lists every dependency compiled into this
+            release.
+
+            ---

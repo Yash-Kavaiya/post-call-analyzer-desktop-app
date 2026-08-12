@@ -59,8 +59,7 @@ impl CustomerExperienceAgent {
         Ok((self.validate(out, transcript), resp))
     }
 
-    const SYSTEM: &'static str =
-        "You assess how a contact-centre call felt for the CUSTOMER.\n\
+    const SYSTEM: &'static str = "You assess how a contact-centre call felt for the CUSTOMER.\n\
          \n\
          Rules you must follow:\n\
          - Every figure is between 0.0 and 1.0.\n\
@@ -91,7 +90,10 @@ impl CustomerExperienceAgent {
     fn validate(&self, out: ModelOutput, transcript: &Transcript) -> CustomerExperienceReport {
         let (cites, dropped) = citations::validate_citations(&out.citations, transcript);
         if dropped > 0 {
-            tracing::warn!(count = dropped, "customer-experience citations failed validation");
+            tracing::warn!(
+                count = dropped,
+                "customer-experience citations failed validation"
+            );
         }
 
         CustomerExperienceReport {
@@ -147,7 +149,12 @@ mod tests {
             churn_risk: 0.2,
             summary: "Repeat contact.".into(),
             citations: cite
-                .map(|c| vec![ModelCitation { segment_id: c.into(), quote: None }])
+                .map(|c| {
+                    vec![ModelCitation {
+                        segment_id: c.into(),
+                        quote: None,
+                    }]
+                })
                 .unwrap_or_default(),
         }
     }
@@ -190,7 +197,10 @@ mod tests {
         let r = CustomerExperienceAgent.validate(output(0.5, Some("seg_1")), &transcript());
         let v = serde_json::to_value(&r).unwrap();
         for k in v.as_object().unwrap().keys() {
-            assert!(!k.contains('_'), "CustomerExperienceReport serialises `{k}`");
+            assert!(
+                !k.contains('_'),
+                "CustomerExperienceReport serialises `{k}`"
+            );
         }
         assert!(v.get("resolutionConfidence").is_some());
         assert!(v.get("churnRisk").is_some());

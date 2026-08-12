@@ -173,18 +173,16 @@ pub fn build_provider(spec: &ProviderSpec, api_key: Option<&str>) -> Result<Arc<
         ProviderKind::NvidiaNim => Arc::new(OpenAiCompatible::new(
             OpenAiCompatConfig::nvidia_nim(key, model),
         )?),
-        ProviderKind::OpenAi => {
-            Arc::new(OpenAiCompatible::new(OpenAiCompatConfig::openai(key, model))?)
-        }
+        ProviderKind::OpenAi => Arc::new(OpenAiCompatible::new(OpenAiCompatConfig::openai(
+            key, model,
+        ))?),
         ProviderKind::OpenRouter => Arc::new(OpenAiCompatible::new(
             OpenAiCompatConfig::openrouter(key, model),
         )?),
         ProviderKind::Groq => {
             Arc::new(OpenAiCompatible::new(OpenAiCompatConfig::groq(key, model))?)
         }
-        ProviderKind::Ollama => {
-            Arc::new(OpenAiCompatible::new(OpenAiCompatConfig::ollama(model))?)
-        }
+        ProviderKind::Ollama => Arc::new(OpenAiCompatible::new(OpenAiCompatConfig::ollama(model))?),
         ProviderKind::LmStudio => {
             Arc::new(OpenAiCompatible::new(OpenAiCompatConfig::lm_studio(model))?)
         }
@@ -248,8 +246,15 @@ mod tests {
             if *kind == ProviderKind::OpenAiCompatible {
                 spec.base_url = Some("https://example.test/v1".into());
             }
-            let key = if kind.requires_api_key() { Some("k") } else { None };
-            assert!(build_provider(&spec, key).is_ok(), "{kind:?} failed to build");
+            let key = if kind.requires_api_key() {
+                Some("k")
+            } else {
+                None
+            };
+            assert!(
+                build_provider(&spec, key).is_ok(),
+                "{kind:?} failed to build"
+            );
         }
     }
 
@@ -272,7 +277,10 @@ mod tests {
             assert_eq!(ProviderKind::parse(kind.as_str()), Some(*kind));
         }
         assert_eq!(ProviderKind::parse("NIM"), Some(ProviderKind::NvidiaNim));
-        assert_eq!(ProviderKind::parse("lm-studio"), Some(ProviderKind::LmStudio));
+        assert_eq!(
+            ProviderKind::parse("lm-studio"),
+            Some(ProviderKind::LmStudio)
+        );
         assert_eq!(ProviderKind::parse("nonsense"), None);
     }
 

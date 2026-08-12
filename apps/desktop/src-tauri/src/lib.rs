@@ -5,13 +5,13 @@
 //! server share one implementation rather than three that drift.
 
 use ca_asr::{WhisperCliConfig, WhisperCliTranscriber};
+use ca_config::{self as settings, AppSettings, ProviderInfo, ProviderTest, SETTINGS_KEY};
 use ca_core::call::CallStage;
 use ca_core::ids::CallId;
 use ca_ingest::{CloudProvider, CloudSpec, LocalFolderSource, ObjectStoreSource};
 use ca_llm::secrets;
 use ca_llm::ProviderKind;
 use ca_pipeline::{Analyzer, Pipeline, PipelineOptions, Progress};
-use ca_config::{self as settings, AppSettings, ProviderInfo, ProviderTest, SETTINGS_KEY};
 use ca_store::{CallSummary, Startup, Stats, Store};
 use serde::Serialize;
 use std::path::{Path, PathBuf};
@@ -175,10 +175,7 @@ fn get_scorecard(
 }
 
 #[tauri::command]
-async fn discover_folder(
-    state: State<'_, AppState>,
-    path: String,
-) -> CmdResult<DiscoverResult> {
+async fn discover_folder(state: State<'_, AppState>, path: String) -> CmdResult<DiscoverResult> {
     let source = LocalFolderSource::new(&path);
     let asr = build_transcriber(&state)?;
     let pipeline = Pipeline::new(state.store.clone(), asr);
@@ -350,16 +347,16 @@ fn list_providers() -> CmdResult<Vec<ProviderInfo>> {
 /// never written to the database, never logged, and never sent back.
 #[tauri::command]
 fn set_api_key(provider: String, key: String) -> CmdResult<Vec<ProviderInfo>> {
-    let kind = ProviderKind::parse(&provider)
-        .ok_or_else(|| format!("unknown provider `{provider}`"))?;
+    let kind =
+        ProviderKind::parse(&provider).ok_or_else(|| format!("unknown provider `{provider}`"))?;
     secrets::store_key(kind, &key).map_err(err)?;
     Ok(settings::provider_catalogue())
 }
 
 #[tauri::command]
 fn clear_api_key(provider: String) -> CmdResult<Vec<ProviderInfo>> {
-    let kind = ProviderKind::parse(&provider)
-        .ok_or_else(|| format!("unknown provider `{provider}`"))?;
+    let kind =
+        ProviderKind::parse(&provider).ok_or_else(|| format!("unknown provider `{provider}`"))?;
     secrets::delete_key(kind).map_err(err)?;
     Ok(settings::provider_catalogue())
 }
@@ -371,7 +368,12 @@ async fn test_provider(settings: AppSettings) -> CmdResult<ProviderTest> {
     use ca_core::provider::{ChatRequest, Message};
 
     if let Err(e) = settings.validate() {
-        return Ok(ProviderTest { ok: false, model: None, latency_ms: None, message: e });
+        return Ok(ProviderTest {
+            ok: false,
+            model: None,
+            latency_ms: None,
+            message: e,
+        });
     }
 
     let (key, source) = secrets::resolve_key(settings.provider);
@@ -524,7 +526,10 @@ async fn process_call(
 
     // Analysis is best-effort: a call should still get its transcript when no
     // model is configured, rather than refusing the whole request.
-    let cfg: AppSettings = store.get_setting(SETTINGS_KEY).map_err(err)?.unwrap_or_default();
+    let cfg: AppSettings = store
+        .get_setting(SETTINGS_KEY)
+        .map_err(err)?
+        .unwrap_or_default();
     let analyzer = if analyze {
         match secrets::resolve_key(cfg.provider) {
             (key, _) if key.is_some() || !cfg.provider.requires_api_key() => {
@@ -622,7 +627,10 @@ async fn ask_call(
     let provider = ca_llm::build_provider(&cfg.spec(), key.as_deref()).map_err(err)?;
 
     // Same rule as the battery: nothing unredacted leaves the machine.
-    let redacted = transcript.segments.iter().all(|s| s.redacted_text.is_some());
+    let redacted = transcript
+        .segments
+        .iter()
+        .all(|s| s.redacted_text.is_some());
     if !cfg.provider.is_local() && !redacted {
         return Err(
             "This call has not been redacted yet, so it cannot be sent to a remote model."
@@ -786,8 +794,7 @@ pub fn run() {
             if let Some(parent) = db_path.parent() {
                 std::fs::create_dir_all(parent).ok();
             }
-            let store =
-                Arc::new(Store::open(&db_path).expect("failed to open the database"));
+            let store = Arc::new(Store::open(&db_path).expect("failed to open the database"));
 
             // A run still marked `running` belongs to a process that is gone —
             // this one is only just starting. Left alone it would show a

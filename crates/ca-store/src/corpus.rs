@@ -65,10 +65,14 @@ impl Store {
                         .get("escalationRisk")
                         .and_then(|x| x.as_f64())
                         .map(|x| x as f32);
-                    facts.churn_risk =
-                        v.get("churnRisk").and_then(|x| x.as_f64()).map(|x| x as f32);
-                    facts.frustration =
-                        v.get("frustration").and_then(|x| x.as_f64()).map(|x| x as f32);
+                    facts.churn_risk = v
+                        .get("churnRisk")
+                        .and_then(|x| x.as_f64())
+                        .map(|x| x as f32);
+                    facts.frustration = v
+                        .get("frustration")
+                        .and_then(|x| x.as_f64())
+                        .map(|x| x as f32);
                 }
                 "compliance" => {
                     if let Some(findings) = v.get("findings").and_then(|x| x.as_array()) {
@@ -116,7 +120,10 @@ impl Store {
         for row in rows {
             let (call_id, text) = row.map_err(|e| CaError::Storage(format!("kw row: {e}")))?;
             if by_call.contains_key(&call_id) {
-                texts.entry(call_id).or_default().push_str(&format!(" {text}"));
+                texts
+                    .entry(call_id)
+                    .or_default()
+                    .push_str(&format!(" {text}"));
             }
         }
 
@@ -180,7 +187,12 @@ mod tests {
     fn a_calls_scores_are_gathered_from_the_agents_that_produced_them() {
         let s = store();
         let id = add_call(&s, "a");
-        add_analysis(&s, &id, AgentKind::QaScorecard, serde_json::json!({"overall": 82.5}));
+        add_analysis(
+            &s,
+            &id,
+            AgentKind::QaScorecard,
+            serde_json::json!({"overall": 82.5}),
+        );
         add_analysis(
             &s,
             &id,
@@ -230,15 +242,28 @@ mod tests {
         // One call with an older shape must not take the whole corpus view down.
         let s = store();
         let good = add_call(&s, "good");
-        add_analysis(&s, &good, AgentKind::QaScorecard, serde_json::json!({"overall": 90.0}));
+        add_analysis(
+            &s,
+            &good,
+            AgentKind::QaScorecard,
+            serde_json::json!({"overall": 90.0}),
+        );
 
         let bad = add_call(&s, "bad");
-        add_analysis(&s, &bad, AgentKind::QaScorecard, serde_json::json!({"overall": "ninety"}));
+        add_analysis(
+            &s,
+            &bad,
+            AgentKind::QaScorecard,
+            serde_json::json!({"overall": "ninety"}),
+        );
 
         let facts = s.corpus_facts(100).unwrap();
         assert_eq!(facts.len(), 2);
         let bad_facts = facts.iter().find(|f| f.call_id == bad.as_str()).unwrap();
-        assert!(bad_facts.qa_overall.is_none(), "a string score was accepted");
+        assert!(
+            bad_facts.qa_overall.is_none(),
+            "a string score was accepted"
+        );
     }
 
     #[test]
@@ -276,17 +301,25 @@ mod tests {
             serde_json::json!({"primaryIssue": "Payment gateway timeout"}),
         );
         let facts = s.corpus_facts(100).unwrap();
-        assert_eq!(facts[0].primary_issue.as_deref(), Some("Payment gateway timeout"));
+        assert_eq!(
+            facts[0].primary_issue.as_deref(),
+            Some("Payment gateway timeout")
+        );
     }
 
     #[test]
     fn keywords_come_from_the_redacted_transcript() {
-        use ca_core::transcript::{Segment, SpeakerRole, Transcript};
         use ca_core::ids::SegmentId;
+        use ca_core::transcript::{Segment, SpeakerRole, Transcript};
 
         let s = store();
         let id = add_call(&s, "a");
-        add_analysis(&s, &id, AgentKind::QaScorecard, serde_json::json!({"overall": 80.0}));
+        add_analysis(
+            &s,
+            &id,
+            AgentKind::QaScorecard,
+            serde_json::json!({"overall": 80.0}),
+        );
 
         let seg = |i: &str, text: &str, redacted: &str| Segment {
             id: SegmentId::from(i),

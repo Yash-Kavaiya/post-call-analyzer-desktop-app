@@ -66,7 +66,11 @@ impl CloudProvider {
     }
 
     pub fn all() -> &'static [CloudProvider] {
-        &[CloudProvider::S3, CloudProvider::AzureBlob, CloudProvider::Gcs]
+        &[
+            CloudProvider::S3,
+            CloudProvider::AzureBlob,
+            CloudProvider::Gcs,
+        ]
     }
 }
 
@@ -105,7 +109,12 @@ impl CloudSpec {
             return Err(format!("Enter {what}."));
         }
         if self.provider == CloudProvider::AzureBlob
-            && self.account.as_deref().map(str::trim).unwrap_or("").is_empty()
+            && self
+                .account
+                .as_deref()
+                .map(str::trim)
+                .unwrap_or("")
+                .is_empty()
         {
             return Err("Azure needs the storage account name.".into());
         }
@@ -231,7 +240,12 @@ impl ObjectStoreSource {
         // two buckets — otherwise re-scanning bucket B would silently adopt
         // bucket A's already-processed calls.
         let name = format!("{}:{}", spec.provider.as_str(), spec.bucket);
-        Ok(Self { spec, http, cache: cache.into(), name })
+        Ok(Self {
+            spec,
+            http,
+            cache: cache.into(),
+            name,
+        })
     }
 
     pub fn spec(&self) -> &CloudSpec {
@@ -325,7 +339,10 @@ fn parse_xml_listing(
                         token = Some(text.trim().to_string());
                     }
                 } else if (name == "Contents" || name == "Blob") && key.is_some() {
-                    objects.push(RawObject { key: key.take().unwrap(), size: size.take() });
+                    objects.push(RawObject {
+                        key: key.take().unwrap(),
+                        size: size.take(),
+                    });
                 }
             }
 
@@ -352,7 +369,9 @@ fn resolve_entity(name: &str) -> String {
         "quot" => "\"".into(),
         "apos" => "'".into(),
         _ => {
-            let parsed = name.strip_prefix("#x").or_else(|| name.strip_prefix("#X"))
+            let parsed = name
+                .strip_prefix("#x")
+                .or_else(|| name.strip_prefix("#X"))
                 .and_then(|h| u32::from_str_radix(h, 16).ok())
                 .or_else(|| name.strip_prefix('#').and_then(|d| d.parse().ok()))
                 .and_then(char::from_u32);
@@ -488,7 +507,10 @@ mod tests {
     #[test]
     fn a_custom_endpoint_switches_to_path_style() {
         // MinIO, R2 and friends do not do virtual-hosted buckets.
-        let spec = CloudSpec { endpoint: Some("https://minio.local:9000".into()), ..s3() };
+        let spec = CloudSpec {
+            endpoint: Some("https://minio.local:9000".into()),
+            ..s3()
+        };
         assert_eq!(spec.base_url(), "https://minio.local:9000/calls");
     }
 
@@ -500,15 +522,24 @@ mod tests {
             bucket: "recordings".into(),
             ..s3()
         };
-        assert_eq!(spec.base_url(), "https://acme.blob.core.windows.net/recordings");
+        assert_eq!(
+            spec.base_url(),
+            "https://acme.blob.core.windows.net/recordings"
+        );
         assert!(spec.list_url(None).contains("restype=container&comp=list"));
     }
 
     #[test]
     fn gcs_lists_through_the_json_api_but_fetches_the_public_url() {
-        let spec = CloudSpec { provider: CloudProvider::Gcs, ..s3() };
+        let spec = CloudSpec {
+            provider: CloudProvider::Gcs,
+            ..s3()
+        };
         assert!(spec.list_url(None).contains("storage/v1/b/calls/o"));
-        assert_eq!(spec.object_url("a b.m4a"), "https://storage.googleapis.com/calls/a%20b.m4a");
+        assert_eq!(
+            spec.object_url("a b.m4a"),
+            "https://storage.googleapis.com/calls/a%20b.m4a"
+        );
     }
 
     #[test]
@@ -519,7 +550,11 @@ mod tests {
 
     #[test]
     fn azure_needs_an_account_and_says_so() {
-        let spec = CloudSpec { provider: CloudProvider::AzureBlob, account: None, ..s3() };
+        let spec = CloudSpec {
+            provider: CloudProvider::AzureBlob,
+            account: None,
+            ..s3()
+        };
         assert!(spec.validate().unwrap_err().contains("storage account"));
     }
 
@@ -546,8 +581,7 @@ mod tests {
           <Contents><Key>inbound/b.mp3</Key><Size>99</Size></Contents>
           <NextContinuationToken>tok123</NextContinuationToken>
         </ListBucketResult>"#;
-        let (objs, token) =
-            parse_xml_listing(xml, "Key", "Size", "NextContinuationToken").unwrap();
+        let (objs, token) = parse_xml_listing(xml, "Key", "Size", "NextContinuationToken").unwrap();
         assert_eq!(objs.len(), 2);
         assert_eq!(objs[0].key, "inbound/a.m4a");
         assert_eq!(objs[0].size, Some(1234));
@@ -563,8 +597,7 @@ mod tests {
           </Blobs>
           <NextMarker/>
         </EnumerationResults>"#;
-        let (objs, token) =
-            parse_xml_listing(xml, "Name", "Content-Length", "NextMarker").unwrap();
+        let (objs, token) = parse_xml_listing(xml, "Name", "Content-Length", "NextMarker").unwrap();
         assert_eq!(objs.len(), 1);
         assert_eq!(objs[0].key, "calls/x.wav");
         assert_eq!(objs[0].size, Some(77));
@@ -597,7 +630,14 @@ mod tests {
         // Identity is (source_name, key); sharing a name across buckets would
         // make a scan of one adopt the other's processed calls.
         let a = ObjectStoreSource::new(s3(), ".").unwrap();
-        let b = ObjectStoreSource::new(CloudSpec { bucket: "other".into(), ..s3() }, ".").unwrap();
+        let b = ObjectStoreSource::new(
+            CloudSpec {
+                bucket: "other".into(),
+                ..s3()
+            },
+            ".",
+        )
+        .unwrap();
         assert_ne!(a.name(), b.name());
     }
 }

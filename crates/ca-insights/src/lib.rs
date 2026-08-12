@@ -395,8 +395,14 @@ mod tests {
         let r = analyse_corpus(&calls);
         let top = r.qa_distribution.iter().find(|b| b.floor == 90).unwrap();
         assert_eq!(top.calls, 2, "100 should land in the 90s band, not its own");
-        assert!(r.qa_distribution.iter().any(|b| b.floor == 80 && b.calls == 1));
-        assert!(r.qa_distribution.iter().any(|b| b.floor == 40 && b.calls == 1));
+        assert!(r
+            .qa_distribution
+            .iter()
+            .any(|b| b.floor == 80 && b.calls == 1));
+        assert!(r
+            .qa_distribution
+            .iter()
+            .any(|b| b.floor == 40 && b.calls == 1));
     }
 
     #[test]
@@ -404,7 +410,10 @@ mod tests {
         // Treating an absent score as 0 would drag every mean toward nothing.
         let calls = vec![
             call("a", 90.0, 0.2, &[]),
-            CallFacts { qa_overall: None, ..call("b", 0.0, 0.2, &[]) },
+            CallFacts {
+                qa_overall: None,
+                ..call("b", 0.0, 0.2, &[])
+            },
         ];
         let r = analyse_corpus(&calls);
         assert_eq!(r.mean_qa, Some(90.0));

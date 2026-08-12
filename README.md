@@ -1,9 +1,13 @@
 # Call Analyzer
 
+[![CI](https://github.com/Yash-Kavaiya/call-analyzer/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/Yash-Kavaiya/call-analyzer/actions/workflows/ci.yml)
+[![Security](https://github.com/Yash-Kavaiya/call-analyzer/actions/workflows/security.yml/badge.svg?branch=main)](https://github.com/Yash-Kavaiya/call-analyzer/actions/workflows/security.yml)
+[![Release](https://github.com/Yash-Kavaiya/call-analyzer/actions/workflows/release.yml/badge.svg)](https://github.com/Yash-Kavaiya/call-analyzer/actions/workflows/release.yml)
+
 ![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)
 ![Rust](https://img.shields.io/badge/Rust-1.82%2B-orange)
 ![Tauri](https://img.shields.io/badge/Tauri-2.x-green)
-![React](https://img.shields.io/badge/React-18%2B-61dafb)
+![React](https://img.shields.io/badge/React-19-61dafb)
 
 **Call Analyzer** is a Windows desktop application for contact-center call intelligence. It performs local transcription, speaker diarization, PII redaction, and multi-vendor LLM scoring — all with a NVIDIA-themed dashboard. Built with [Tauri 2](https://tauri.app/) + [React](https://react.dev/) for the UI and a modular [Rust](https://www.rust-lang.org/) workspace for the backend.
 
@@ -21,6 +25,7 @@
 - [Roadmap](#roadmap)
 - [Security](#security)
 - [Contributing](#contributing)
+- [CI/CD](#cicd)
 - [License](#license)
 
 ---
@@ -233,6 +238,9 @@ See [docs/PHASE2_AGENTS.md](docs/PHASE2_AGENTS.md) for Phase 2 details.
 - `.env` is gitignored — use `.env.example` as a template.
 - All cloud uploads are opt-in and explicitly triggered by the user.
 
+To report a vulnerability, see [SECURITY.md](SECURITY.md). Please do not open a
+public issue for anything involving credential exposure or PII.
+
 ---
 
 ## Contributing
@@ -245,11 +253,38 @@ We welcome contributions! Please see [CONTRIBUTING.md](CONTRIBUTING.md) for:
 - Pull request process
 - Bug reporting guidelines
 
+Before pushing, run the same checks CI runs:
+
+```powershell
+pwsh scripts/preflight.ps1
+```
+
 ### Quick Contributing Links
 
-- 🐛 [Report a Bug](https://github.com/<your-org>/call-analyzer/issues/new?template=bug_report.md)
-- 💡 [Request a Feature](https://github.com/<your-org>/call-analyzer/issues/new?template=feature_request.md)
-- 💬 [Join the Discussion](https://github.com/<your-org>/call-analyzer/discussions)
+- 🐛 [Report a Bug](https://github.com/Yash-Kavaiya/call-analyzer/issues/new?template=bug_report.yml)
+- 💡 [Request a Feature](https://github.com/Yash-Kavaiya/call-analyzer/issues/new?template=feature_request.yml)
+- 💬 [Join the Discussion](https://github.com/Yash-Kavaiya/call-analyzer/discussions)
+
+---
+
+## CI/CD
+
+Every pull request must pass two checks before it can merge:
+
+| Check | Covers |
+|---|---|
+| **CI** | Formatting, clippy (`-D warnings`), tests and doctests, rustdoc, UI lint/type-check/build, coverage, repo hygiene |
+| **Security** | Secret scanning, `cargo-deny` (advisories, licences, banned crates, sources), `npm audit`, dependency review, CodeQL, actionlint |
+
+Tagging `v*.*.*` builds and publishes signed MSI and NSIS installers plus the
+standalone CLI, with SHA-256 checksums, a CycloneDX SBOM, and a verifiable
+build-provenance attestation.
+
+The licence policy in [`deny.toml`](deny.toml) is what keeps the promises this
+README makes: no GPL dependency can enter the tree (which is why audio decoding
+uses symphonia rather than ffmpeg), and no dependency can pull in OpenSSL.
+
+Full documentation: **[docs/CI_CD.md](docs/CI_CD.md)**.
 
 ---
 

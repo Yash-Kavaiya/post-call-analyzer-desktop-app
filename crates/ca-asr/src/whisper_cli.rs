@@ -194,7 +194,11 @@ impl Transcriber for WhisperCliTranscriber {
         false
     }
 
-    async fn transcribe(&self, audio: &AudioBuffer, opts: &TranscribeOptions) -> Result<Transcript> {
+    async fn transcribe(
+        &self,
+        audio: &AudioBuffer,
+        opts: &TranscribeOptions,
+    ) -> Result<Transcript> {
         if audio.is_empty() {
             return Err(CaError::Config("cannot transcribe empty audio".into()));
         }
@@ -296,8 +300,7 @@ impl WhisperCliTranscriber {
                     None
                 } else {
                     Some(
-                        words.iter().filter_map(|w| w.confidence).sum::<f32>()
-                            / words.len() as f32,
+                        words.iter().filter_map(|w| w.confidence).sum::<f32>() / words.len() as f32,
                     )
                 };
                 Segment {
@@ -384,10 +387,7 @@ mod tests {
     fn continuation_tokens_merge_into_one_word() {
         // whisper splits rare words across tokens; they must rejoin or the
         // agents get citation anchors that land mid-word.
-        let words = tokens_to_words(&[
-            tok(" refund", 0, 200, 0.9),
-            tok("able", 200, 350, 0.8),
-        ]);
+        let words = tokens_to_words(&[tok(" refund", 0, 200, 0.9), tok("able", 200, 350, 0.8)]);
         assert_eq!(words.len(), 1);
         assert_eq!(words[0].text, "refundable");
         assert_eq!(words[0].start, 0.0);

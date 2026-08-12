@@ -1,0 +1,46 @@
+# Clippy configuration.
+#
+# CI runs clippy with `-D warnings`, so anything clippy reports blocks the
+# merge. The thresholds below are set where they catch genuine complexity
+# without firing on the audio- and DSP-heavy code in ca-audio and ca-diarize,
+# which legitimately carries more arguments and longer functions than typical
+# application code.
+
+# The lowest supported Rust version. Clippy uses this to avoid suggesting
+# APIs that are newer than the version this project promises to build on.
+msrv = "1.82"
+
+# Signal-processing routines take sample rates, window sizes, hop sizes and
+# thresholds together; splitting them into a struct per call site would be
+# ceremony, not clarity.
+too-many-arguments-threshold = 9
+
+# A `match` over provider kinds or call stages is naturally wide and is
+# clearer as one block than split across helpers.
+too-many-lines-threshold = 200
+
+# Sample counts, frequencies and score weights are readable as literals in
+# DSP and scoring code; naming each one adds indirection without meaning.
+disallowed-names = ["foo", "bar", "baz", "qux", "tmp2"]
+
+# Documentation for these appears with the exact casing below; clippy should
+# not ask for backticks around them in doc comments.
+doc-valid-idents = [
+    "NVIDIA",
+    "OpenAI",
+    "SQLite",
+    "WebView",
+    "MinGW",
+    "GPU",
+    "CPU",
+    "PII",
+    "ASR",
+    "VAD",
+    "LLM",
+    "JSON",
+    "TOML",
+    "WAV",
+    "MSI",
+    "NSIS",
+    "..",
+]

@@ -106,8 +106,7 @@ fn default_paths() -> (PathBuf, PathBuf) {
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     tracing_subscriber::fmt()
         .with_env_filter(
-            tracing_subscriber::EnvFilter::try_from_default_env()
-                .unwrap_or_else(|_| "warn".into()),
+            tracing_subscriber::EnvFilter::try_from_default_env().unwrap_or_else(|_| "warn".into()),
         )
         .init();
 
@@ -122,7 +121,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         Command::Discover { folder, recursive } => {
             let source = LocalFolderSource::new(&folder).recursive(recursive);
             let (bin, model) = default_paths();
-            let asr = Arc::new(WhisperCliTranscriber::new(WhisperCliConfig::new(bin, model))?);
+            let asr = Arc::new(WhisperCliTranscriber::new(WhisperCliConfig::new(
+                bin, model,
+            ))?);
             let pipeline = Pipeline::new(store.clone(), asr);
 
             let (total, new) = pipeline.discover(&source).await?;
@@ -288,40 +289,42 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                             .flatten()
                             .and_then(|v| v.get("passed").and_then(|o| o.as_bool()));
                         let rca = store
-                                                    .load_analysis(&call, AgentKind::RootCause)
-                                                    .ok()
-                                                    .flatten()
-                                                    .and_then(|v| {
-                                                        v.get("category")
-                                                            .and_then(|c| c.as_str())
-                                                            .map(|s| s.to_string())
-                                                    });
-                                                let acts = store
-                                                    .load_analysis(&call, AgentKind::ActionItems)
-                                                    .ok()
-                                                    .flatten()
-                                                    .and_then(|v| v.get("items").and_then(|i| i.as_array()).map(|a| a.len()));
-                                                let qa_s = score
-                                                    .map(|s| format!("{s:>5.1}%"))
-                                                    .unwrap_or_else(|| "   ?  ".into());
-                                                let se_s = sent
-                                                    .map(|s| format!("sent={s:+.2}"))
-                                                    .unwrap_or_else(|| "sent=?".into());
-                                                let co_s = match comp {
-                                                    Some(true) => "comp=pass",
-                                                    Some(false) => "comp=FAIL",
-                                                    None => "comp=?",
-                                                };
-                                                let rc_s = rca
-                                                    .map(|c| format!("rca={c}"))
-                                                    .unwrap_or_else(|| "rca=?".into());
-                                                let ac_s = acts
-                                                    .map(|n| format!("acts={n}"))
-                                                    .unwrap_or_else(|| "acts=?".into());
-                                                println!(
-                                                    "  [{done}] {qa_s}  {se_s}  {co_s}  {rc_s}  {ac_s}  {}",
-                                                    short(call.as_str())
-                                                );
+                            .load_analysis(&call, AgentKind::RootCause)
+                            .ok()
+                            .flatten()
+                            .and_then(|v| {
+                                v.get("category")
+                                    .and_then(|c| c.as_str())
+                                    .map(|s| s.to_string())
+                            });
+                        let acts = store
+                            .load_analysis(&call, AgentKind::ActionItems)
+                            .ok()
+                            .flatten()
+                            .and_then(|v| {
+                                v.get("items").and_then(|i| i.as_array()).map(|a| a.len())
+                            });
+                        let qa_s = score
+                            .map(|s| format!("{s:>5.1}%"))
+                            .unwrap_or_else(|| "   ?  ".into());
+                        let se_s = sent
+                            .map(|s| format!("sent={s:+.2}"))
+                            .unwrap_or_else(|| "sent=?".into());
+                        let co_s = match comp {
+                            Some(true) => "comp=pass",
+                            Some(false) => "comp=FAIL",
+                            None => "comp=?",
+                        };
+                        let rc_s = rca
+                            .map(|c| format!("rca={c}"))
+                            .unwrap_or_else(|| "rca=?".into());
+                        let ac_s = acts
+                            .map(|n| format!("acts={n}"))
+                            .unwrap_or_else(|| "acts=?".into());
+                        println!(
+                            "  [{done}] {qa_s}  {se_s}  {co_s}  {rc_s}  {ac_s}  {}",
+                            short(call.as_str())
+                        );
                     }
                     Progress::Failed { name, error, .. } => {
                         done += 1;
@@ -418,7 +421,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
         Command::Stats => {
             let total = store.count_calls()?;
-            let pending = store.calls_below_stage(CallStage::Redacted, usize::MAX)?.len();
+            let pending = store
+                .calls_below_stage(CallStage::Redacted, usize::MAX)?
+                .len();
             let (input, output, cost) = store.total_usage()?;
             println!("calls registered : {total}");
             println!("calls outstanding: {pending}");

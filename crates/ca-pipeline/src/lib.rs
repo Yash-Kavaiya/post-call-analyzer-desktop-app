@@ -81,12 +81,32 @@ impl Default for PipelineOptions {
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum Progress {
-    Discovered { total: usize, new: usize },
-    Started { call: CallId, name: String },
-    Stage { call: CallId, stage: CallStage },
-    Finished { call: CallId, name: String, secs: f64 },
-    Failed { call: CallId, name: String, error: String },
-    Done { processed: usize, failed: usize },
+    Discovered {
+        total: usize,
+        new: usize,
+    },
+    Started {
+        call: CallId,
+        name: String,
+    },
+    Stage {
+        call: CallId,
+        stage: CallStage,
+    },
+    Finished {
+        call: CallId,
+        name: String,
+        secs: f64,
+    },
+    Failed {
+        call: CallId,
+        name: String,
+        error: String,
+    },
+    Done {
+        processed: usize,
+        failed: usize,
+    },
 }
 
 #[derive(Debug, Default, Clone)]
@@ -202,7 +222,6 @@ impl Pipeline {
 
             handles.push(tokio::spawn(async move {
                 let _permit = permit_src.acquire().await.ok()?;
-
 
                 let name = call_id.as_str().to_string();
                 let _ = tx.send(Progress::Started {

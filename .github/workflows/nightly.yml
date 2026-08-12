@@ -1,0 +1,271 @@
+# ============================================================
+# Nightly — the checks that are worth knowing about but not worth blocking
+# a pull request over.
+#
+# Everything here is either slow, or fails for reasons outside the author's
+# control (a dependency published a breaking minor, a new advisory landed).
+# Putting those in the PR gate teaches people that red means "try again",
+# which is the single most expensive thing that can happen to a CI system.
+# Here they produce a report, and on main they produce an issue.
+# ============================================================
+name: Nightly
+
+on:
+  schedule:
+    # 03:00 UTC daily — after the working day in most timezones, so results
+    # are waiting rather than competing with PR runs for runners.
+    - cron: "0 3 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: nightly
+  cancel-in-progress: true
+
+env:
+  CARGO_TERM_COLOR: always
+  CARGO_INCREMENTAL: 0
+  CARGO_NET_RETRY: 10
+  RUSTUP_MAX_RETRIES: 10
+  NODE_VERSION: "24"
+
+jobs:
+  # ----------------------------------------------------------
+  # Does the product still build the way a user receives it?
+  # ----------------------------------------------------------
+  bundle:
+    name: Desktop bundle
+    runs-on: windows-latest
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          key: nightly-bundle
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: |
+            apps/desktop/ui/package-lock.json
+            apps/desktop/package-lock.json
+
+      - name: Install UI dependencies
+        working-directory: apps/desktop/ui
+        run: npm ci
+
+      - name: Install Tauri CLI
+        working-directory: apps/desktop
+        run: npm ci
+
+      - name: Build installers
+        working-directory: apps/desktop
+        run: npm run build
+
+      - name: Report bundle sizes
+        # Installer size creeping upward is a symptom worth noticing early —
+        # usually a dependency that started vendoring something large.
+        shell: bash
+        run: |
+          set -euo pipefail
+          {
+            echo "### Installer sizes"
+            echo
+            find target/release/bundle -type f \( -name '*.msi' -o -name '*.exe' \) \
+              -printf '- `%f` — %s bytes\n' | sort
+          } >> "$GITHUB_STEP_SUMMARY"
+
+  # ----------------------------------------------------------
+  # Local development builds with the GNU toolchain (see rust-toolchain.toml);
+  # CI and releases build with MSVC. That divergence is deliberate — MSVC is
+  # the supported target for Tauri on Windows — but it means a contributor can
+  # hit a compile error that CI never sees. This job watches the other side.
+  # ----------------------------------------------------------
+  gnu-toolchain:
+    name: GNU toolchain parity
+    runs-on: windows-latest
+    timeout-minutes: 60
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust with the GNU target
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: x86_64-pc-windows-gnu
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          key: nightly-gnu
+
+      - name: Put the MinGW toolchain on PATH
+        run: echo "C:\msys64\mingw64\bin" >> $env:GITHUB_PATH
+
+      - name: cargo check
+        run: cargo check --workspace --all-targets --locked --target x86_64-pc-windows-gnu
+
+  # ----------------------------------------------------------
+  # Dependency drift. Builds against the newest versions the manifests allow,
+  # ignoring the lockfile. When this breaks, a routine `cargo update` weeks
+  # from now would have broken instead — with less context and more urgency.
+  # ----------------------------------------------------------
+  dependency-drift:
+    name: Latest dependencies
+    runs-on: windows-latest
+    timeout-minutes: 60
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Install cargo-nextest
+        uses: taiki-e/install-action@v2
+        with:
+          tool: cargo-nextest
+
+      - name: Update every dependency
+        run: cargo update
+
+      - name: Show what moved
+        shell: bash
+        run: |
+          {
+            echo "### Lockfile changes"
+            echo
+            echo '```diff'
+            git diff --no-color -- Cargo.lock | head -200
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Build and test
+        run: cargo nextest run --workspace --all-targets --profile ci
+
+  # ----------------------------------------------------------
+  # Does the crate still build on the version it claims to support?
+  # ----------------------------------------------------------
+  msrv:
+    name: MSRV
+    runs-on: windows-latest
+    timeout-minutes: 45
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Read the declared MSRV
+        id: msrv
+        shell: bash
+        run: |
+          set -euo pipefail
+          version=$(grep -m1 '^rust-version' Cargo.toml | sed -E 's/.*"(.*)".*/\1/')
+          echo "Cargo.toml declares rust-version = $version"
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+
+      - name: Install that toolchain
+        # @master rather than @stable on purpose: this action publishes one
+        # branch per channel, and only the master branch accepts an arbitrary
+        # version in `toolchain`. It is the documented way to pin a version.
+        uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: ${{ steps.msrv.outputs.version }}
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          key: nightly-msrv
+
+      - name: cargo check
+        env:
+          # rust-toolchain.toml pins `stable` and would otherwise win over the
+          # toolchain installed above. This environment variable outranks it.
+          RUSTUP_TOOLCHAIN: ${{ steps.msrv.outputs.version }}
+        run: cargo check --workspace --all-targets --locked
+
+  # ----------------------------------------------------------
+  # Housekeeping that produces suggestions rather than verdicts.
+  # ----------------------------------------------------------
+  hygiene:
+    name: Code hygiene
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Install tools
+        uses: taiki-e/install-action@v2
+        with:
+          tool: typos-cli,cargo-machete
+
+      - name: Spell check
+        # Configured by .typos.toml, which carries this project's vocabulary.
+        run: typos --format brief
+
+      - name: Find unused dependencies
+        # An unused dependency is compile time and audit surface spent on
+        # nothing. cargo-machete reads the source rather than building, so
+        # it occasionally sees a false positive on a macro-only crate.
+        run: cargo machete
+
+  # ----------------------------------------------------------
+  # Turn a persistent nightly failure into something someone will see. A
+  # scheduled workflow that nobody has starred fails silently forever.
+  # ----------------------------------------------------------
+  report:
+    name: Report failures
+    if: always() && github.event_name == 'schedule'
+    needs: [bundle, gnu-toolchain, dependency-drift, msrv, hygiene]
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      issues: write
+    steps:
+      - name: Open or update an issue when the bundle build breaks
+        # Only the bundle job is treated as actionable: the others are
+        # advisory by design and would generate noise, which is exactly what
+        # this job exists to prevent.
+        if: needs.bundle.result == 'failure'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          set -euo pipefail
+
+          # `gh issue create --label` fails outright if the label does not
+          # exist, so make sure of it first. --force turns this into an upsert.
+          gh label create nightly-failure \
+            --repo "${{ github.repository }}" \
+            --color B60205 \
+            --description "Opened automatically when a nightly job fails" \
+            --force
+
+          title="Nightly: desktop bundle build is failing"
+          existing=$(gh issue list --repo "${{ github.repository }}" \
+            --label nightly-failure --state open --json number,title \
+            --jq ".[] | select(.title == \"$title\") | .number" | head -1)
+
+          if [ -n "$existing" ]; then
+            gh issue comment "$existing" --repo "${{ github.repository }}" \
+              --body "Still failing as of $(date -u +%Y-%m-%d). Run: $RUN_URL"
+          else
+            gh issue create --repo "${{ github.repository }}" \
+              --title "$title" \
+              --label nightly-failure \
+              --body "The nightly desktop bundle build failed.
+
+          This is the job that proves the product still packages into an
+          installer, so a failure here means the next release would fail too.
+
+          Run: $RUN_URL"
+          fi

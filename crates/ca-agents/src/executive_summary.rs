@@ -39,7 +39,9 @@ impl ExecutiveSummaryAgent {
         transcript: &Transcript,
     ) -> Result<(ExecutiveSummary, ChatResponse)> {
         if transcript.segments.is_empty() {
-            return Err(CaError::Config("cannot summarise an empty transcript".into()));
+            return Err(CaError::Config(
+                "cannot summarise an empty transcript".into(),
+            ));
         }
 
         let req = ChatRequest::new(vec![
@@ -86,14 +88,18 @@ impl ExecutiveSummaryAgent {
     fn validate(&self, out: ModelOutput, transcript: &Transcript) -> ExecutiveSummary {
         let (cites, dropped) = citations::validate_citations(&out.citations, transcript);
         if dropped > 0 {
-            tracing::warn!(count = dropped, "executive-summary citations failed validation");
+            tracing::warn!(
+                count = dropped,
+                "executive-summary citations failed validation"
+            );
         }
 
         let mut summary = out.summary.trim().to_string();
         // This paragraph gets pasted into reports on its own. If nothing behind
         // it survived validation, it must not read as though someone checked it.
         if cites.is_empty() && !summary.is_empty() {
-            summary.push_str(" (Unverified: no citation in this summary resolved to the transcript.)");
+            summary
+                .push_str(" (Unverified: no citation in this summary resolved to the transcript.)");
         }
 
         ExecutiveSummary {
@@ -169,14 +175,20 @@ mod tests {
             customer_outcome: outcome.into(),
             risk: risk.into(),
             citations: cite
-                .map(|c| vec![ModelCitation { segment_id: c.into(), quote: None }])
+                .map(|c| {
+                    vec![ModelCitation {
+                        segment_id: c.into(),
+                        quote: None,
+                    }]
+                })
                 .unwrap_or_default(),
         }
     }
 
     #[test]
     fn a_cited_summary_is_kept_verbatim() {
-        let r = ExecutiveSummaryAgent.validate(output("positive", "low", Some("seg_1")), &transcript());
+        let r =
+            ExecutiveSummaryAgent.validate(output("positive", "low", Some("seg_1")), &transcript());
         assert!(!r.summary.contains("Unverified"));
         assert_eq!(r.citations[0].start, 2.0);
         assert_eq!(r.risk, Severity::Low);
@@ -193,7 +205,8 @@ mod tests {
 
     #[test]
     fn a_fabricated_citation_leaves_the_summary_marked_unverified() {
-        let r = ExecutiveSummaryAgent.validate(output("positive", "low", Some("seg_nope")), &transcript());
+        let r = ExecutiveSummaryAgent
+            .validate(output("positive", "low", Some("seg_nope")), &transcript());
         assert!(r.citations.is_empty());
         assert!(r.summary.contains("Unverified"));
     }
@@ -201,14 +214,18 @@ mod tests {
     #[test]
     fn an_unrecognised_outcome_becomes_neutral_rather_than_uncoloured() {
         for odd in ["delighted", "", "MIXED"] {
-            let r = ExecutiveSummaryAgent.validate(output(odd, "low", Some("seg_1")), &transcript());
+            let r =
+                ExecutiveSummaryAgent.validate(output(odd, "low", Some("seg_1")), &transcript());
             assert_eq!(r.customer_outcome, "neutral", "input {odd:?}");
         }
     }
 
     #[test]
     fn common_synonyms_for_outcome_and_risk_are_accepted() {
-        let r = ExecutiveSummaryAgent.validate(output("satisfied", "moderate", Some("seg_1")), &transcript());
+        let r = ExecutiveSummaryAgent.validate(
+            output("satisfied", "moderate", Some("seg_1")),
+            &transcript(),
+        );
         assert_eq!(r.customer_outcome, "positive");
         assert_eq!(r.risk, Severity::Medium);
     }
@@ -216,7 +233,8 @@ mod tests {
     #[test]
     fn an_unknown_risk_falls_back_to_info_not_critical() {
         // Guessing high would flood a review queue with calls nobody flagged.
-        let r = ExecutiveSummaryAgent.validate(output("neutral", "spicy", Some("seg_1")), &transcript());
+        let r = ExecutiveSummaryAgent
+            .validate(output("neutral", "spicy", Some("seg_1")), &transcript());
         assert_eq!(r.risk, Severity::Info);
     }
 

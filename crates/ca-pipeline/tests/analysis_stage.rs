@@ -148,9 +148,7 @@ fn stub_transcriber() -> Arc<ca_asr::WhisperCliTranscriber> {
         }
     }
 
-    Arc::new(
-        ca_asr::WhisperCliTranscriber::new(ca_asr::WhisperCliConfig::new(bin, model)).unwrap(),
-    )
+    Arc::new(ca_asr::WhisperCliTranscriber::new(ca_asr::WhisperCliConfig::new(bin, model)).unwrap())
 }
 
 fn pipeline_with(store: Arc<Store>, model: Arc<StubModel>) -> ca_pipeline::Pipeline {
@@ -215,7 +213,10 @@ async fn a_second_run_leaves_the_scored_call_alone() {
 
     // The whole point of committing per stage: resuming a 1,968-call batch must
     // not re-bill every call that already succeeded.
-    assert_eq!(report.discovered, 0, "already-scored call was selected again");
+    assert_eq!(
+        report.discovered, 0,
+        "already-scored call was selected again"
+    );
     assert_eq!(
         model.calls.load(Ordering::SeqCst),
         agents_per_call(),

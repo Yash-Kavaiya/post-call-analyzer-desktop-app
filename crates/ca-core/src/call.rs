@@ -87,7 +87,11 @@ pub struct Call {
 }
 
 impl Call {
-    pub fn new(source_key: impl Into<String>, source_name: impl Into<String>, display_name: impl Into<String>) -> Self {
+    pub fn new(
+        source_key: impl Into<String>,
+        source_name: impl Into<String>,
+        display_name: impl Into<String>,
+    ) -> Self {
         let now = Utc::now();
         Self {
             id: CallId::new(),

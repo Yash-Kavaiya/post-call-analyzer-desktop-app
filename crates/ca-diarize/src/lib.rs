@@ -116,12 +116,8 @@ impl Diarizer for AcousticDiarizer {
                 .collect());
         }
 
-        let windows = features::extract_windows(
-            &audio.samples,
-            audio.sample_rate,
-            &vad,
-            self.window_secs,
-        );
+        let windows =
+            features::extract_windows(&audio.samples, audio.sample_rate, &vad, self.window_secs);
 
         if windows.len() < k {
             return Ok(windows
@@ -176,10 +172,7 @@ impl Diarizer for AcousticDiarizer {
 /// Prefer [`resegment_by_speaker`] where word timings exist: ASR segments
 /// routinely span a turn boundary, and forcing one speaker onto such a segment
 /// mislabels half of it.
-pub fn assign_speakers(
-    segments: &mut [ca_core::transcript::Segment],
-    turns: &[SpeakerTurn],
-) {
+pub fn assign_speakers(segments: &mut [ca_core::transcript::Segment], turns: &[SpeakerTurn]) {
     for seg in segments.iter_mut() {
         if let Some(idx) = speaker_at(seg.start, seg.end, turns) {
             seg.speaker_index = idx;
@@ -360,7 +353,10 @@ mod tests {
             samples,
             sample_rate: sr,
         };
-        let turns = AcousticDiarizer::default().diarize(&audio, Some(2)).await.unwrap();
+        let turns = AcousticDiarizer::default()
+            .diarize(&audio, Some(2))
+            .await
+            .unwrap();
         assert!(turns.iter().all(|t| t.speaker_index == 0));
     }
 
@@ -381,7 +377,10 @@ mod tests {
             samples,
             sample_rate: sr,
         };
-        let turns = AcousticDiarizer::default().diarize(&audio, Some(2)).await.unwrap();
+        let turns = AcousticDiarizer::default()
+            .diarize(&audio, Some(2))
+            .await
+            .unwrap();
         let distinct: std::collections::HashSet<u8> =
             turns.iter().map(|t| t.speaker_index).collect();
         assert_eq!(distinct.len(), 2, "turns: {turns:?}");
@@ -423,8 +422,15 @@ mod tests {
         let turns = vec![turn(0, 0.0, 2.5), turn(1, 2.5, 4.0)];
         resegment_by_speaker(&mut t, &turns);
 
-        assert_eq!(t.segments.len(), 2, "segments: {:?}",
-            t.segments.iter().map(|s| (s.speaker_index, s.text.clone())).collect::<Vec<_>>());
+        assert_eq!(
+            t.segments.len(),
+            2,
+            "segments: {:?}",
+            t.segments
+                .iter()
+                .map(|s| (s.speaker_index, s.text.clone()))
+                .collect::<Vec<_>>()
+        );
         assert_eq!(t.segments[0].speaker_index, 0);
         assert_eq!(t.segments[0].text, "Am I speaking?");
         assert_eq!(t.segments[1].speaker_index, 1);

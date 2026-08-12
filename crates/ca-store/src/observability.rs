@@ -196,7 +196,8 @@ mod tests {
     #[test]
     fn a_successful_run_carries_its_payload_and_accounting() {
         let (s, id) = store_with_call();
-        s.save_analysis(&analysis(&id, AgentKind::QaScorecard, None)).unwrap();
+        s.save_analysis(&analysis(&id, AgentKind::QaScorecard, None))
+            .unwrap();
 
         let runs = s.agent_runs(&id).unwrap();
         assert_eq!(runs.len(), 1);
@@ -224,7 +225,8 @@ mod tests {
     #[test]
     fn health_aggregates_runs_failures_and_spend_per_agent() {
         let (s, id) = store_with_call();
-        s.save_analysis(&analysis(&id, AgentKind::QaScorecard, None)).unwrap();
+        s.save_analysis(&analysis(&id, AgentKind::QaScorecard, None))
+            .unwrap();
 
         let call2 = Call::new("k2", "test", "b.m4a");
         let id2 = s.upsert_call(&call2).unwrap();
@@ -246,7 +248,8 @@ mod tests {
         // A router substituting a cheaper model changes what the scores mean,
         // and nothing else in the app would show it.
         let (s, id) = store_with_call();
-        s.save_analysis(&analysis(&id, AgentKind::Sentiment, None)).unwrap();
+        s.save_analysis(&analysis(&id, AgentKind::Sentiment, None))
+            .unwrap();
 
         let call2 = Call::new("k2", "test", "b.m4a");
         let id2 = s.upsert_call(&call2).unwrap();
@@ -264,7 +267,8 @@ mod tests {
         // Absent and "ran 0 times" are different states; inventing a zero row
         // would claim an agent exists in this build's history when it does not.
         let (s, id) = store_with_call();
-        s.save_analysis(&analysis(&id, AgentKind::QaScorecard, None)).unwrap();
+        s.save_analysis(&analysis(&id, AgentKind::QaScorecard, None))
+            .unwrap();
         let health = s.agent_health().unwrap();
         assert_eq!(health.len(), 1);
     }

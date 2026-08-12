@@ -1,0 +1,62 @@
+name: Feature request
+description: Suggest something the product should do
+labels: [enhancement, needs-triage]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: The problem
+      description: |
+        Describe the situation you are stuck in, not the feature you have in
+        mind. A well-described problem often has a better solution than the
+        one that prompted the request.
+      placeholder: |
+        Reviewing a hundred calls means opening each one to find out whether
+        anything went wrong, and most of them are fine.
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposal
+    attributes:
+      label: What you have in mind
+    validations:
+      required: true
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: What you tried or considered instead
+      description: Including workarounds that partly work.
+
+  - type: dropdown
+    id: area
+    attributes:
+      label: Which part
+      options:
+        - Desktop app (UI)
+        - CLI (`ca`)
+        - Transcription
+        - Diarization
+        - PII redaction
+        - Agents and scoring
+        - LLM providers
+        - Storage and reporting
+        - Ingestion
+        - Something new
+    validations:
+      required: true
+
+  - type: checkboxes
+    id: constraints
+    attributes:
+      label: Does this fit the product's constraints?
+      description: |
+        Call Analyzer runs locally on Windows, transcribes without sending
+        audio to a third party, and avoids GPL dependencies so it can ship as
+        an MIT-licensed binary. Proposals that conflict with these are still
+        worth raising — just say so.
+      options:
+        - label: This works offline, or degrades sensibly without a network
+        - label: This does not require sending call audio to an external service
+        - label: I am not sure

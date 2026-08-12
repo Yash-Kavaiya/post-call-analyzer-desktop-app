@@ -1,0 +1,70 @@
+# Path-based labels, applied by .github/workflows/labeler.yml.
+#
+# These feed two things that would otherwise need manual work: the release
+# notes categories in .github/release.yml, and the reviewer's sense of what a
+# PR touches before opening the diff.
+#
+# Format is actions/labeler v5.
+
+rust:
+  - changed-files:
+      - any-glob-to-any-file:
+          - "crates/**"
+          - "apps/desktop/src-tauri/**/*.rs"
+          - "Cargo.toml"
+          - "Cargo.lock"
+          - "rust-toolchain.toml"
+          - "clippy.toml"
+          - "rustfmt.toml"
+
+frontend:
+  - changed-files:
+      - any-glob-to-any-file:
+          - "apps/desktop/ui/**"
+
+tauri:
+  - changed-files:
+      - any-glob-to-any-file:
+          - "apps/desktop/src-tauri/**"
+          - "apps/desktop/package.json"
+
+privacy:
+  - changed-files:
+      - any-glob-to-any-file:
+          - "crates/ca-privacy/**"
+
+security:
+  - changed-files:
+      - any-glob-to-any-file:
+          - "crates/ca-llm/src/secrets.rs"
+          - "apps/desktop/src-tauri/capabilities/**"
+          - "deny.toml"
+          - "SECURITY.md"
+
+ci:
+  - changed-files:
+      - any-glob-to-any-file:
+          - ".github/**"
+          - "scripts/**"
+          - ".config/nextest.toml"
+
+documentation:
+  - changed-files:
+      - any-glob-to-any-file:
+          - "**/*.md"
+          - "docs/**"
+
+dependencies:
+  - changed-files:
+      - any-glob-to-any-file:
+          - "Cargo.lock"
+          - "**/package-lock.json"
+
+# Packaging changes need an installer built before merge; the CI workflow
+# looks for this label to decide whether to run the bundle job.
+full-build:
+  - changed-files:
+      - any-glob-to-any-file:
+          - "apps/desktop/src-tauri/tauri.conf.json"
+          - "apps/desktop/src-tauri/icons/**"
+          - "vendor/**"

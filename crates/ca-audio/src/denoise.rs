@@ -62,6 +62,9 @@ mod tests {
         let s = vec![0.0f32; FRAME * 4];
         let out = denoise_48k(&s);
         let peak = out.iter().fold(0.0f32, |m, x| m.max(x.abs()));
-        assert!(peak < 1e-3, "denoiser introduced energy into silence: {peak}");
+        assert!(
+            peak < 1e-3,
+            "denoiser introduced energy into silence: {peak}"
+        );
     }
 }

@@ -193,7 +193,11 @@ mod tests {
     fn different_values_get_different_tokens() {
         let mut r = Redactor::default();
         let out = r.redact("call 9876543210 or 9123456789");
-        assert!(out.text.contains("[PHONE_1]") && out.text.contains("[PHONE_2]"), "{}", out.text);
+        assert!(
+            out.text.contains("[PHONE_1]") && out.text.contains("[PHONE_2]"),
+            "{}",
+            out.text
+        );
     }
 
     #[test]

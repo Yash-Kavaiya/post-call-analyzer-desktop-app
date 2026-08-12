@@ -114,9 +114,9 @@ impl ComplianceAgent {
         }
 
         // passed is recomputed from surviving findings: high/critical always fail.
-        let has_blocking = findings.iter().any(|f| {
-            matches!(f.severity, Severity::High | Severity::Critical)
-        });
+        let has_blocking = findings
+            .iter()
+            .any(|f| matches!(f.severity, Severity::High | Severity::Critical));
         let passed = !has_blocking;
 
         Ok(ComplianceReport {

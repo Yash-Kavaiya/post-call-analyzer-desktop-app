@@ -1,0 +1,469 @@
+# ============================================================
+# CI — the gate every change passes before it reaches main.
+#
+# Layout note: the Rust jobs run on Windows because that is the platform the
+# product ships on. ca-llm binds the Windows Credential Manager and the
+# desktop crate builds against WebView2, so a Linux "quick check" would be
+# checking a different program than the one users install. Jobs that are
+# genuinely platform-independent (formatting, the UI, repo hygiene) run on
+# Linux, where runners are cheaper and start faster.
+#
+# Branch protection should require exactly one check: `CI`. It is the
+# `ci-success` job at the bottom, which rolls up everything else. That way
+# adding or renaming a job never means editing repository settings.
+# ============================================================
+name: CI
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+  # Lets the same checks gate a merge queue if one is ever enabled.
+  merge_group:
+  workflow_dispatch:
+
+# Least privilege by default; jobs that need more ask for it explicitly.
+permissions:
+  contents: read
+
+concurrency:
+  # Supersede an in-flight run when a PR gets a new push, but never cancel a
+  # run on main — those results are what release decisions are made from.
+  group: ci-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+env:
+  CARGO_TERM_COLOR: always
+  # CI starts from a cold target directory every time, so incremental
+  # compilation only produces artifacts nothing will ever read.
+  CARGO_INCREMENTAL: 0
+  CARGO_NET_RETRY: 10
+  RUSTUP_MAX_RETRIES: 10
+  RUST_BACKTRACE: 1
+  NODE_VERSION: "24"
+
+jobs:
+  # ----------------------------------------------------------
+  # Repo hygiene. Runs first and finishes in about a minute, so an obviously
+  # broken PR fails before burning Windows runner time.
+  # ----------------------------------------------------------
+  guard:
+    name: Repo guard
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      pull-requests: read
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # Needed to diff against the base branch.
+          fetch-depth: 0
+
+      - name: Reject oversized files added by this change
+        if: github.event_name == 'pull_request'
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          set -euo pipefail
+          # GitHub warns above 50 MB and refuses the push above 100 MB. A file
+          # that large is almost always a model, a binary, or a database that
+          # belongs in release assets rather than in history — and once it is
+          # in history, removing it means rewriting every commit after it.
+          limit=$((50 * 1024 * 1024))
+          fail=0
+          while IFS= read -r f; do
+            [ -f "$f" ] || continue
+            size=$(stat -c%s "$f")
+            if [ "$size" -gt "$limit" ]; then
+              printf '::error file=%s::%s is %s MB, over the 50 MB limit for a tracked file. Fetch it at build time instead — see docs/CI_CD.md.\n' \
+                "$f" "$f" "$((size / 1024 / 1024))"
+              fail=1
+            fi
+          done < <(git diff --name-only --diff-filter=AM "$BASE_SHA" "$HEAD_SHA")
+          exit "$fail"
+
+      - name: Reject committed secrets and leftovers
+        run: |
+          set -euo pipefail
+          fail=0
+
+          # A .env is the one file in this repo guaranteed to hold live
+          # provider keys; .env.example is the tracked, empty stand-in.
+          if git ls-files --error-unmatch .env >/dev/null 2>&1; then
+            echo "::error::.env is tracked. Remove it with 'git rm --cached .env' and keep only .env.example."
+            fail=1
+          fi
+
+          # Unresolved conflict markers compile in some languages and are
+          # easy to miss in a large diff.
+          markers='^(<{7}|={7}|>{7})( |$)'
+          if git grep -nIE "$markers" -- ':!*.md' ':!.github/**' >/dev/null 2>&1; then
+            echo "::error::Merge conflict markers are still present:"
+            git grep -nIE "$markers" -- ':!*.md' ':!.github/**' || true
+            fail=1
+          fi
+
+          exit "$fail"
+
+      - name: Report pre-existing large files
+        # Informational only. The repository already carries files above the
+        # limit; failing on them would block every PR until history is
+        # rewritten, and that is a maintainer's decision, not a CI run's.
+        run: |
+          set -euo pipefail
+          {
+            echo "### Tracked files over 50 MB"
+            echo
+            found=0
+            while IFS= read -r f; do
+              [ -f "$f" ] || continue
+              size=$(stat -c%s "$f")
+              if [ "$size" -gt $((50 * 1024 * 1024)) ]; then
+                echo "- \`$f\` — $((size / 1024 / 1024)) MB"
+                found=1
+              fi
+            done < <(git ls-files)
+            if [ "$found" -eq 0 ]; then
+              echo "None."
+            else
+              echo
+              echo "These predate the size guard. \`docs/CI_CD.md\` covers how to move them out of history."
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Check PR title follows Conventional Commits
+        if: github.event_name == 'pull_request'
+        uses: amannn/action-semantic-pull-request@v5
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          # Kept in sync with the table in CONTRIBUTING.md.
+          types: |
+            feat
+            fix
+            docs
+            refactor
+            perf
+            test
+            chore
+            ci
+            build
+            style
+            revert
+          requireScope: false
+          subjectPattern: ^(?![A-Z]).+$
+          subjectPatternError: |
+            The subject "{subject}" should start with a lowercase letter, as in
+            "feat(asr): add whisper.cpp backend" rather than "Add ...".
+
+  # ----------------------------------------------------------
+  # Formatting. Pure parsing, no compilation — cheap enough to run on Linux.
+  # ----------------------------------------------------------
+  fmt:
+    name: Format
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt
+
+      - name: cargo fmt --check
+        run: cargo fmt --all -- --check
+
+  # ----------------------------------------------------------
+  # Lints. `--all-targets` covers tests and examples too, which is where lint
+  # debt normally accumulates unnoticed.
+  # ----------------------------------------------------------
+  clippy:
+    name: Clippy
+    runs-on: windows-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          key: clippy
+          # Only main writes the cache. Otherwise every PR branch pushes its
+          # own copy and evicts main's within a day, so nothing ever hits.
+          save-if: ${{ github.ref == 'refs/heads/main' }}
+
+      - name: cargo clippy
+        run: cargo clippy --workspace --all-targets --locked -- -D warnings
+
+  # ----------------------------------------------------------
+  # Tests.
+  # ----------------------------------------------------------
+  test:
+    name: Test
+    runs-on: windows-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          key: test
+          save-if: ${{ github.ref == 'refs/heads/main' }}
+
+      - name: Install cargo-nextest
+        uses: taiki-e/install-action@v2
+        with:
+          tool: cargo-nextest
+
+      - name: Verify the lockfile is current
+        # Without this, a stale Cargo.lock surfaces later as an opaque
+        # resolver error inside a build step. Here it says what it is.
+        run: cargo metadata --locked --format-version 1 | Out-Null
+
+      - name: cargo nextest run
+        run: cargo nextest run --workspace --all-targets --locked --profile ci
+
+      - name: cargo test --doc
+        # nextest does not run doctests, and doc examples are the part of the
+        # documentation most likely to rot unnoticed.
+        run: cargo test --doc --workspace --locked
+
+      - name: Upload test report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-results
+          path: target/nextest/ci/junit.xml
+          if-no-files-found: warn
+          retention-days: 14
+
+  # ----------------------------------------------------------
+  # Documentation. Broken intra-doc links are invisible until someone clicks.
+  # ----------------------------------------------------------
+  docs:
+    name: Rustdoc
+    runs-on: windows-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          key: docs
+          save-if: ${{ github.ref == 'refs/heads/main' }}
+
+      - name: cargo doc
+        env:
+          RUSTDOCFLAGS: -D warnings
+        run: cargo doc --workspace --no-deps --locked
+
+  # ----------------------------------------------------------
+  # Desktop UI. Independent of the Rust build, so it runs in parallel on a
+  # cheaper runner and gives fast feedback on frontend-only changes.
+  # ----------------------------------------------------------
+  ui:
+    name: UI
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    defaults:
+      run:
+        working-directory: apps/desktop/ui
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: apps/desktop/ui/package-lock.json
+
+      - name: Install dependencies
+        # `npm ci` installs exactly what package-lock.json says and fails if
+        # the lockfile and manifest disagree — the Node equivalent of --locked.
+        run: npm ci
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Type-check and build
+        # `npm run build` is `tsc -b && vite build`, so this is the type check
+        # and the production bundle in one step.
+        run: npm run build
+
+      - name: Upload frontend bundle
+        uses: actions/upload-artifact@v4
+        with:
+          name: ui-dist
+          path: apps/desktop/ui/dist
+          retention-days: 7
+
+  # ----------------------------------------------------------
+  # Coverage. Reported on every PR so a drop is visible while the change is
+  # still being reviewed, rather than discovered during a release.
+  # ----------------------------------------------------------
+  coverage:
+    name: Coverage
+    runs-on: windows-latest
+    timeout-minutes: 45
+    env:
+      # Deliberately 0 until the first run establishes a real baseline. Raise
+      # it to just under the measured number and ratchet upward from there; a
+      # threshold invented before measuring only teaches people to ignore the
+      # job. See docs/CI_CD.md.
+      COVERAGE_MIN: "0"
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: llvm-tools-preview
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          key: coverage
+          save-if: ${{ github.ref == 'refs/heads/main' }}
+
+      - name: Install cargo-llvm-cov and cargo-nextest
+        uses: taiki-e/install-action@v2
+        with:
+          tool: cargo-llvm-cov,cargo-nextest
+
+      - name: Run tests with instrumentation
+        # `--no-report` keeps the raw profile data so the reports below can be
+        # produced in several formats without re-running the suite.
+        run: cargo llvm-cov nextest --workspace --locked --no-report
+
+      - name: Generate reports
+        # src-tauri is excluded: it is the thin command layer between the
+        # window and the crates, and counting it would report the untestable
+        # glue rather than the logic the tests are actually aimed at.
+        run: |
+          cargo llvm-cov report --ignore-filename-regex "src-tauri" --lcov --output-path lcov.info
+          cargo llvm-cov report --ignore-filename-regex "src-tauri" --summary-only | Tee-Object -FilePath coverage.txt
+
+      - name: Publish summary
+        if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
+          {
+            echo "### Line coverage"
+            echo
+            echo '```'
+            cat coverage.txt
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Enforce coverage floor
+        run: >
+          cargo llvm-cov report
+          --ignore-filename-regex "src-tauri"
+          --fail-under-lines ${{ env.COVERAGE_MIN }}
+
+      - name: Upload coverage report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-lcov
+          path: |
+            lcov.info
+            coverage.txt
+          if-no-files-found: warn
+          retention-days: 14
+
+  # ----------------------------------------------------------
+  # Installer build. The bundler is the one part of the pipeline the other
+  # jobs never exercise, and it breaks in ways compilation does not catch —
+  # a missing icon, a resource path that no longer resolves.
+  #
+  # Too slow for every PR, so: always on main, and on demand for a PR that
+  # touches packaging (add the `full-build` label).
+  # ----------------------------------------------------------
+  desktop-build:
+    name: Desktop bundle
+    if: >-
+      github.event_name == 'push' ||
+      github.event_name == 'workflow_dispatch' ||
+      contains(github.event.pull_request.labels.*.name, 'full-build')
+    runs-on: windows-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          key: desktop
+          save-if: ${{ github.ref == 'refs/heads/main' }}
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: |
+            apps/desktop/ui/package-lock.json
+            apps/desktop/package-lock.json
+
+      - name: Install UI dependencies
+        # tauri.conf.json runs `npm run build` in ../ui while bundling, but it
+        # does not install for us, so both package roots are prepared here.
+        working-directory: apps/desktop/ui
+        run: npm ci
+
+      - name: Install Tauri CLI
+        working-directory: apps/desktop
+        run: npm ci
+
+      - name: Build installers
+        working-directory: apps/desktop
+        run: npm run build
+
+      - name: Upload installers
+        uses: actions/upload-artifact@v4
+        with:
+          name: desktop-installers
+          path: |
+            target/release/bundle/msi/*.msi
+            target/release/bundle/nsis/*.exe
+          if-no-files-found: error
+          retention-days: 14
+
+  # ----------------------------------------------------------
+  # The single check branch protection requires. Everything above feeds in.
+  # ----------------------------------------------------------
+  ci-success:
+    name: CI
+    if: always()
+    needs: [guard, fmt, clippy, test, docs, ui, coverage, desktop-build]
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Verify no required job failed
+        # `skipped` is deliberately tolerated: desktop-build is conditional,
+        # and treating its absence as a failure would block every normal PR.
+        # `failure` and `cancelled` are not tolerated.
+        run: |
+          echo "Job results: ${{ join(needs.*.result, ', ') }}"
+          if [ "${{ contains(needs.*.result, 'failure') }}" = "true" ] \
+            || [ "${{ contains(needs.*.result, 'cancelled') }}" = "true" ]; then
+            echo "::error::At least one required check did not pass."
+            exit 1
+          fi
+          echo "All required checks passed."

@@ -2,14 +2,12 @@
 //! Usage: cargo run -p ca-audio --release --example probe_corpus -- <dir> [count]
 
 use ca_audio::{process_file, ProcessOptions};
-use std::path::PathBuf;
 use std::io::Write;
+use std::path::PathBuf;
 use std::time::Instant;
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
-    let dir = std::env::args()
-        .nth(1)
-        .unwrap_or_else(|| ".".to_string());
+    let dir = std::env::args().nth(1).unwrap_or_else(|| ".".to_string());
     let count: usize = std::env::args()
         .nth(2)
         .and_then(|s| s.parse().ok())
@@ -92,7 +90,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     }
 
     let wall = started.elapsed().as_secs_f64();
-    println!("--- {ok} ok / {} audio-seconds in {wall:.1}s ({:.0}x realtime) ---",
-        total_audio as u64, total_audio / wall.max(1e-9));
+    println!(
+        "--- {ok} ok / {} audio-seconds in {wall:.1}s ({:.0}x realtime) ---",
+        total_audio as u64,
+        total_audio / wall.max(1e-9)
+    );
     Ok(())
 }

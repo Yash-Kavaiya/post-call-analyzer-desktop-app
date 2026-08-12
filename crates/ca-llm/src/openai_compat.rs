@@ -15,7 +15,10 @@ use std::time::{Duration, Instant};
 #[derive(Debug, Clone)]
 pub enum Auth {
     Bearer(String),
-    Header { name: String, value: String },
+    Header {
+        name: String,
+        value: String,
+    },
     /// Local servers (Ollama, LM Studio) usually need nothing.
     None,
 }
@@ -268,7 +271,10 @@ impl LlmProvider for OpenAiCompatible {
     }
 
     async fn complete(&self, req: ChatRequest) -> Result<ChatResponse> {
-        let url = format!("{}/chat/completions", self.cfg.base_url.trim_end_matches('/'));
+        let url = format!(
+            "{}/chat/completions",
+            self.cfg.base_url.trim_end_matches('/')
+        );
 
         // Ask for JSON mode only when the endpoint claims to support it; sending
         // `response_format` to a server that rejects unknown fields fails the call.
@@ -298,10 +304,17 @@ impl LlmProvider for OpenAiCompatible {
         let mut attempt = 0u32;
         loop {
             let started = Instant::now();
-            let sent = self.apply_auth(self.http.post(&url)).json(&body).send().await;
+            let sent = self
+                .apply_auth(self.http.post(&url))
+                .json(&body)
+                .send()
+                .await;
 
             let outcome: Result<ChatResponse> = match sent {
-                Err(e) => Err(CaError::provider(&self.cfg.provider_name, crate::describe(&e))),
+                Err(e) => Err(CaError::provider(
+                    &self.cfg.provider_name,
+                    crate::describe(&e),
+                )),
                 Ok(r) => {
                     let status = r.status();
                     if status.is_success() {

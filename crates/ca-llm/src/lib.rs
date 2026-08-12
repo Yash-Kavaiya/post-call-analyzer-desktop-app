@@ -13,12 +13,12 @@ pub mod openai_compat;
 pub mod registry;
 pub mod secrets;
 
-pub use json_repair::extract_json;
 pub use anthropic::{AnthropicConfig, AnthropicProvider};
 pub use gemini::{GeminiConfig, GeminiProvider};
+pub use json_repair::extract_json;
 pub use openai_compat::{Auth, OpenAiCompatConfig, OpenAiCompatible};
-pub use registry::{ProviderKind, ProviderSpec, build_provider};
-pub use secrets::{KeySource, key_source, resolve_key};
+pub use registry::{build_provider, ProviderKind, ProviderSpec};
+pub use secrets::{key_source, resolve_key, KeySource};
 
 use ca_core::error::{CaError, Result};
 use ca_core::provider::{ChatRequest, ChatResponse, LlmProvider};

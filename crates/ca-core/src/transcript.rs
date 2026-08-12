@@ -161,7 +161,11 @@ mod tests {
     fn prompt_format_prefers_redacted_text() {
         let t = Transcript {
             call_id: crate::ids::CallId::from("call_x"),
-            segments: vec![seg("seg_1", "call me on 9876543210", Some("call me on [PHONE_1]"))],
+            segments: vec![seg(
+                "seg_1",
+                "call me on 9876543210",
+                Some("call me on [PHONE_1]"),
+            )],
             speakers: vec![],
             primary_language: None,
             languages: vec![],
@@ -170,8 +174,14 @@ mod tests {
             duration_secs: 70.0,
         };
         let out = t.to_prompt_format();
-        assert!(out.contains("[PHONE_1]"), "redacted text must be used: {out}");
-        assert!(!out.contains("9876543210"), "raw PII leaked into prompt: {out}");
+        assert!(
+            out.contains("[PHONE_1]"),
+            "redacted text must be used: {out}"
+        );
+        assert!(
+            !out.contains("9876543210"),
+            "raw PII leaked into prompt: {out}"
+        );
         assert!(out.contains("01:05"), "timestamp missing: {out}");
         assert!(out.contains("seg_1"), "segment id missing: {out}");
     }

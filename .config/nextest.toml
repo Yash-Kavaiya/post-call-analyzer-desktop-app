@@ -1,0 +1,35 @@
+# cargo-nextest configuration.
+# https://nexte.st/docs/configuration/
+#
+# The `ci` profile is selected by the Test job in .github/workflows/ci.yml.
+
+[profile.default]
+# A test that has not finished in a minute is not slow, it is stuck — most
+# likely on a network call that should have been stubbed. Say so early.
+slow-timeout = { period = "60s", terminate-after = 3 }
+
+[profile.ci]
+# Report every failure in the run rather than stopping at the first. One CI
+# run should tell a contributor everything that is broken, not the first
+# thing that broke.
+fail-fast = false
+
+# A single retry, on purpose. nextest labels anything that passes on retry as
+# FLAKY in its summary, so this converts a random red build into a visible,
+# named problem instead of hiding it. Raising this above 1 starts hiding
+# things — if a test needs two retries it needs fixing, not more retries.
+retries = 1
+
+# Print the output of failing tests inline as they fail, and again at the end,
+# so the failure is visible without scrolling through the whole log.
+failure-output = "immediate-final"
+status-level = "retry"
+final-status-level = "flaky"
+
+# CI runners have fewer, slower cores than a development machine.
+slow-timeout = { period = "120s", terminate-after = 3 }
+
+[profile.ci.junit]
+# Consumed by the test-results artifact and by any PR test reporter added
+# later. Lands at target/nextest/ci/junit.xml.
+path = "junit.xml"

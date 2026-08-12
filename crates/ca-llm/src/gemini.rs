@@ -308,7 +308,9 @@ mod tests {
 
     #[test]
     fn flash_lite_is_cheaper_than_pro() {
-        let lite = pricing_for("gemini-2.5-flash-lite").cost(1_000_000, 0).unwrap();
+        let lite = pricing_for("gemini-2.5-flash-lite")
+            .cost(1_000_000, 0)
+            .unwrap();
         let pro = pricing_for("gemini-2.5-pro").cost(1_000_000, 0).unwrap();
         assert!(lite < pro, "lite {lite} should be cheaper than pro {pro}");
     }

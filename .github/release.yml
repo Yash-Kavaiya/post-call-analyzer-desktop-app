@@ -1,0 +1,40 @@
+# Categorises the notes GitHub generates for a release. The release workflow
+# passes generate_release_notes: true, and this file decides what the result
+# reads like — grouped by what changed for a user, not by commit order.
+changelog:
+  exclude:
+    labels:
+      - skip-changelog
+    authors:
+      - dependabot
+      - github-actions
+
+  categories:
+    - title: Breaking changes
+      labels: [breaking]
+
+    - title: Features
+      labels: [enhancement, feature]
+
+    - title: Fixes
+      labels: [bug, fix]
+
+    - title: Performance
+      labels: [performance]
+
+    - title: Privacy and security
+      labels: [security, privacy]
+
+    - title: Desktop app
+      labels: [frontend, ui]
+
+    - title: Documentation
+      labels: [documentation]
+
+    - title: Dependencies
+      labels: [dependencies]
+
+    # Anything that reached a release without a label still gets listed —
+    # an uncategorised change is better than a missing one.
+    - title: Other changes
+      labels: ["*"]

@@ -124,7 +124,10 @@ impl Scorecard {
         if total_weight <= 0.0 {
             return 0.0;
         }
-        let weighted: f32 = scored.iter().map(|c| c.score.clamp(0.0, 1.0) * c.weight).sum();
+        let weighted: f32 = scored
+            .iter()
+            .map(|c| c.score.clamp(0.0, 1.0) * c.weight)
+            .sum();
         (weighted / total_weight * 100.0).clamp(0.0, 100.0)
     }
 }

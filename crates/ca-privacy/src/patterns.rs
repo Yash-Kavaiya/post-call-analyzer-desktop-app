@@ -57,9 +57,8 @@ impl EntityKind {
     }
 }
 
-static EMAIL: LazyLock<Regex> = LazyLock::new(|| {
-    Regex::new(r"(?i)\b[a-z0-9._%+\-]+@[a-z0-9.\-]+\.[a-z]{2,}\b").unwrap()
-});
+static EMAIL: LazyLock<Regex> =
+    LazyLock::new(|| Regex::new(r"(?i)\b[a-z0-9._%+\-]+@[a-z0-9.\-]+\.[a-z]{2,}\b").unwrap());
 
 // Indian mobile: optional +91 prefix, then 10 digits starting 6-9.
 //
@@ -71,23 +70,19 @@ static EMAIL: LazyLock<Regex> = LazyLock::new(|| {
 // The leading alternation is either the country code or a word boundary —
 // never both. `+919876543210` has no boundary between the `91` and the `9`
 // that follows it, so requiring one there would miss the unspaced form.
-static PHONE: LazyLock<Regex> = LazyLock::new(|| {
-    Regex::new(r"(?:\+?91[\s\-]?|\b)[6-9](?:[\s\-]?\d){9}\b").unwrap()
-});
+static PHONE: LazyLock<Regex> =
+    LazyLock::new(|| Regex::new(r"(?:\+?91[\s\-]?|\b)[6-9](?:[\s\-]?\d){9}\b").unwrap());
 
 // 13-19 digits, optionally grouped in fours. Luhn-validated below.
-static CARD: LazyLock<Regex> =
-    LazyLock::new(|| Regex::new(r"\b(?:\d[ \-]?){12,18}\d\b").unwrap());
+static CARD: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"\b(?:\d[ \-]?){12,18}\d\b").unwrap());
 
 // Aadhaar: 12 digits, commonly in 4-4-4 groups, never starting 0 or 1.
 static AADHAAR: LazyLock<Regex> =
     LazyLock::new(|| Regex::new(r"\b[2-9]\d{3}[\s\-]?\d{4}[\s\-]?\d{4}\b").unwrap());
 
-static PAN: LazyLock<Regex> =
-    LazyLock::new(|| Regex::new(r"\b[A-Z]{5}[0-9]{4}[A-Z]\b").unwrap());
+static PAN: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"\b[A-Z]{5}[0-9]{4}[A-Z]\b").unwrap());
 
-static IFSC: LazyLock<Regex> =
-    LazyLock::new(|| Regex::new(r"\b[A-Z]{4}0[A-Z0-9]{6}\b").unwrap());
+static IFSC: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"\b[A-Z]{4}0[A-Z0-9]{6}\b").unwrap());
 
 // Bank account numbers, cued by a nearby keyword because a bare run of digits
 // is far too common to redact on sight.
@@ -111,7 +106,12 @@ pub fn detect_all(text: &str, enabled: &[EntityKind]) -> Vec<Found> {
 
     if on(EntityKind::Email) {
         for m in EMAIL.find_iter(text) {
-            out.push((m.start(), m.end(), EntityKind::Email, m.as_str().to_string()));
+            out.push((
+                m.start(),
+                m.end(),
+                EntityKind::Email,
+                m.as_str().to_string(),
+            ));
         }
     }
 
@@ -155,7 +155,12 @@ pub fn detect_all(text: &str, enabled: &[EntityKind]) -> Vec<Found> {
     if on(EntityKind::Account) {
         for c in ACCOUNT.captures_iter(text) {
             if let Some(g) = c.get(1) {
-                out.push((g.start(), g.end(), EntityKind::Account, g.as_str().to_string()));
+                out.push((
+                    g.start(),
+                    g.end(),
+                    EntityKind::Account,
+                    g.as_str().to_string(),
+                ));
             }
         }
     }
@@ -165,14 +170,24 @@ pub fn detect_all(text: &str, enabled: &[EntityKind]) -> Vec<Found> {
             let digits: String = m.as_str().chars().filter(|c| c.is_ascii_digit()).collect();
             // 10 national digits, or 12 with the 91 country code.
             if digits.len() == 10 || (digits.len() == 12 && digits.starts_with("91")) {
-                out.push((m.start(), m.end(), EntityKind::Phone, m.as_str().to_string()));
+                out.push((
+                    m.start(),
+                    m.end(),
+                    EntityKind::Phone,
+                    m.as_str().to_string(),
+                ));
             }
         }
     }
 
     if on(EntityKind::Health) {
         for m in HEALTH.find_iter(text) {
-            out.push((m.start(), m.end(), EntityKind::Health, m.as_str().to_string()));
+            out.push((
+                m.start(),
+                m.end(),
+                EntityKind::Health,
+                m.as_str().to_string(),
+            ));
         }
     }
 
@@ -318,7 +333,10 @@ mod tests {
 
     #[test]
     fn health_terms_are_flagged_as_phi() {
-        let found = detect_all("patient has diabetes and takes insulin", &[EntityKind::Health]);
+        let found = detect_all(
+            "patient has diabetes and takes insulin",
+            &[EntityKind::Health],
+        );
         assert_eq!(found.len(), 2, "found: {found:?}");
         assert!(EntityKind::Health.is_phi());
     }

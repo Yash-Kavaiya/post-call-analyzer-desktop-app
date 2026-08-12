@@ -1,0 +1,161 @@
+# ============================================================
+# cargo-deny — supply chain policy for Call Analyzer
+#
+# Run locally with:   cargo deny check
+# Run one section:    cargo deny check licenses
+#
+# This file encodes decisions the codebase already made in prose. ca-audio
+# picks symphonia over ffmpeg specifically so that a GPL dependency never
+# reaches the shipped binary; ca-llm picks rustls over native-tls so there
+# is no OpenSSL to build or patch. Comments explaining a choice drift out of
+# date silently. A policy file fails the build the moment someone reverses
+# one of those choices, which is the point.
+# ============================================================
+
+[graph]
+# The product ships as a Windows desktop app. Resolving against the target
+# it is actually built for keeps the report free of Linux- and macOS-only
+# dependencies that never reach a user.
+targets = [
+    { triple = "x86_64-pc-windows-msvc" },
+    { triple = "x86_64-pc-windows-gnu" },
+]
+# Feature selection is left to the caller. CI resolves with --all-features,
+# which examines every dependency any feature combination could pull in
+# rather than only the ones today's build happens to enable.
+
+# Dev-dependencies stay in the graph. They are never distributed, so they do
+# not bind the product's license — but they do execute on CI runners, which
+# makes their advisories this project's problem.
+exclude-dev = false
+
+[output]
+feature-depth = 1
+
+# ------------------------------------------------------------
+# Security advisories (RustSec)
+# ------------------------------------------------------------
+[advisories]
+db-urls = ["https://github.com/rustsec/advisory-db"]
+
+# A yanked dependency means the author withdrew that exact version, most
+# often because it was broken or unsound. Shipping one is never intentional.
+yanked = "deny"
+
+# Advisories consciously accepted, each with a reason and an exit plan.
+# Format: "RUSTSEC-0000-0000", or { id = "...", reason = "..." }
+#
+# Nothing is ignored today. Anything added here must state why the product
+# is not exposed and what has to happen before it can be removed again.
+ignore = []
+
+# ------------------------------------------------------------
+# Licenses
+# ------------------------------------------------------------
+# cargo-deny is allowlist-only: any license not named below fails the build.
+# That is deliberate — GPL-2.0, GPL-3.0, AGPL-3.0, LGPL and SSPL are absent
+# from this list, so a dependency carrying one of them cannot enter the tree
+# without a reviewer explicitly editing this file.
+[licenses]
+allow = [
+    # Permissive core of the Rust ecosystem.
+    "MIT",
+    "Apache-2.0",
+    "Apache-2.0 WITH LLVM-exception",
+    "BSD-2-Clause",
+    "BSD-3-Clause",
+    "ISC",
+    "Zlib",
+    "0BSD",
+    "BSL-1.0",
+    "CC0-1.0",
+    "Unlicense",
+
+    # File-level copyleft. Permitted on purpose: symphonia (audio decoding)
+    # is MPL-2.0, and it is the reason this project does not need ffmpeg.
+    # MPL-2.0 obliges us to publish changes to *those files*; it does not
+    # reach the rest of the binary the way GPL would.
+    "MPL-2.0",
+
+    # Unicode character data tables (unicode-ident and friends).
+    "Unicode-3.0",
+    "Unicode-DFS-2016",
+
+    # Mozilla's CA root bundle ships under this (webpki-roots).
+    "CDLA-Permissive-2.0",
+]
+
+# Per-crate exceptions, for licenses too unusual to allow project-wide.
+# Each entry is a promise that someone read the license for that one crate.
+exceptions = [
+    # ring's older releases carry an OpenSSL-derived clause covering only
+    # the assembly it inherited from BoringSSL. It is permissive in effect.
+    { allow = ["OpenSSL"], crate = "ring" },
+]
+
+# Below this confidence, cargo-deny refuses to guess at a license text and
+# asks for a `clarify` entry instead of quietly accepting a bad match.
+confidence-threshold = 0.93
+
+# The workspace crates are ours and are MIT by workspace inheritance.
+[licenses.private]
+ignore = true
+
+# ------------------------------------------------------------
+# Banned and restricted crates
+# ------------------------------------------------------------
+[bans]
+# Duplicate versions of a crate are a warning, not an error. In a 557-crate
+# graph they are usually a transitive dependency mid-upgrade and outside
+# this project's control; failing on them would mean blocking merges on
+# other people's release schedules.
+multiple-versions = "warn"
+
+# A wildcard version requirement means "whatever resolves today", which
+# makes a build unreproducible from the manifest alone.
+wildcards = "deny"
+
+[[bans.deny]]
+crate = "openssl-sys"
+reason = """
+reqwest is configured with default-features = false and rustls-tls precisely
+so that no C OpenSSL has to be built, shipped, or patched on Windows. If this
+fires, a dependency re-enabled native-tls — find it with
+`cargo tree -i openssl-sys` and turn its default features off.
+"""
+
+[[bans.deny]]
+crate = "openssl"
+reason = "See openssl-sys. This project is rustls-only."
+
+[[bans.deny]]
+crate = "native-tls"
+reason = "See openssl-sys. This project is rustls-only."
+
+[[bans.deny]]
+crate = "ffmpeg-sys-next"
+reason = """
+ca-audio decodes with symphonia (MPL-2.0) rather than ffmpeg, because an
+ffmpeg build with the usual feature set is GPL and would force GPL on the
+entire shipped product. Adding ffmpeg is a licensing decision, not a
+dependency bump, and needs to be made deliberately.
+"""
+
+[[bans.deny]]
+crate = "ffmpeg-next"
+reason = "See ffmpeg-sys-next."
+
+# Crates allowed to appear more than once, when a duplicate is expected.
+skip = []
+
+# Skip an entire subtree when a dependency pins old versions of many crates.
+skip-tree = []
+
+# ------------------------------------------------------------
+# Sources
+# ------------------------------------------------------------
+[sources]
+# Anything not from crates.io is a crate nobody is watching for advisories.
+unknown-registry = "deny"
+unknown-git = "deny"
+allow-registry = ["https://github.com/rust-lang/crates.io-index"]

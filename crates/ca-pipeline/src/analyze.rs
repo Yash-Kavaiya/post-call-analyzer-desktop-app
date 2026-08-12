@@ -105,13 +105,20 @@ impl Analyzer {
             Ok((card, resp)) => {
                 let payload =
                     serde_json::to_value(&card).map_err(|e| CaError::Other(Box::new(e)))?;
-                out.analyses
-                    .push(self.envelope(transcript, AgentKind::QaScorecard, payload, &resp));
+                out.analyses.push(self.envelope(
+                    transcript,
+                    AgentKind::QaScorecard,
+                    payload,
+                    &resp,
+                ));
             }
             Err(e) => {
                 tracing::error!(error = %e, "qa agent failed");
-                out.analyses
-                    .push(self.error_envelope(transcript, AgentKind::QaScorecard, e.to_string()));
+                out.analyses.push(self.error_envelope(
+                    transcript,
+                    AgentKind::QaScorecard,
+                    e.to_string(),
+                ));
             }
         }
 
@@ -125,8 +132,11 @@ impl Analyzer {
             }
             Err(e) => {
                 tracing::error!(error = %e, "sentiment agent failed");
-                out.analyses
-                    .push(self.error_envelope(transcript, AgentKind::Sentiment, e.to_string()));
+                out.analyses.push(self.error_envelope(
+                    transcript,
+                    AgentKind::Sentiment,
+                    e.to_string(),
+                ));
             }
         }
 
@@ -141,8 +151,11 @@ impl Analyzer {
             }
             Err(e) => {
                 tracing::error!(error = %e, "compliance agent failed");
-                out.analyses
-                    .push(self.error_envelope(transcript, AgentKind::Compliance, e.to_string()));
+                out.analyses.push(self.error_envelope(
+                    transcript,
+                    AgentKind::Compliance,
+                    e.to_string(),
+                ));
             }
         }
 
@@ -156,8 +169,11 @@ impl Analyzer {
             }
             Err(e) => {
                 tracing::error!(error = %e, "root-cause agent failed");
-                out.analyses
-                    .push(self.error_envelope(transcript, AgentKind::RootCause, e.to_string()));
+                out.analyses.push(self.error_envelope(
+                    transcript,
+                    AgentKind::RootCause,
+                    e.to_string(),
+                ));
             }
         }
 
@@ -166,13 +182,20 @@ impl Analyzer {
             Ok((report, resp)) => {
                 let payload =
                     serde_json::to_value(&report).map_err(|e| CaError::Other(Box::new(e)))?;
-                out.analyses
-                    .push(self.envelope(transcript, AgentKind::ActionItems, payload, &resp));
+                out.analyses.push(self.envelope(
+                    transcript,
+                    AgentKind::ActionItems,
+                    payload,
+                    &resp,
+                ));
             }
             Err(e) => {
                 tracing::error!(error = %e, "action-items agent failed");
-                out.analyses
-                    .push(self.error_envelope(transcript, AgentKind::ActionItems, e.to_string()));
+                out.analyses.push(self.error_envelope(
+                    transcript,
+                    AgentKind::ActionItems,
+                    e.to_string(),
+                ));
             }
         }
 
@@ -186,8 +209,11 @@ impl Analyzer {
             }
             Err(e) => {
                 tracing::error!(error = %e, "coaching agent failed");
-                out.analyses
-                    .push(self.error_envelope(transcript, AgentKind::Coaching, e.to_string()));
+                out.analyses.push(self.error_envelope(
+                    transcript,
+                    AgentKind::Coaching,
+                    e.to_string(),
+                ));
             }
         }
 
@@ -274,12 +300,7 @@ impl Analyzer {
         }
     }
 
-    fn error_envelope(
-        &self,
-        transcript: &Transcript,
-        agent: AgentKind,
-        error: String,
-    ) -> Analysis {
+    fn error_envelope(&self, transcript: &Transcript, agent: AgentKind, error: String) -> Analysis {
         Analysis {
             id: AnalysisId::new(),
             call_id: transcript.call_id.clone(),
@@ -307,9 +328,9 @@ impl Analyzer {
 mod tests {
     use super::*;
     use ca_agents::Rubric;
+    use ca_core::ids::{CallId, SegmentId};
     use ca_core::provider::{Caps, ChatRequest};
     use ca_core::transcript::{Segment, SpeakerRole};
-    use ca_core::ids::{CallId, SegmentId};
 
     /// A provider that fails the test if it is ever called. The redaction guard
     /// must reject before any network work happens, not after.
@@ -365,7 +386,11 @@ mod tests {
 
     #[tokio::test]
     async fn remote_providers_reject_unredacted_transcripts() {
-        let err = analyzer(false).score(&transcript(), false).await.err().unwrap();
+        let err = analyzer(false)
+            .score(&transcript(), false)
+            .await
+            .err()
+            .unwrap();
         assert!(matches!(err, CaError::Config(_)), "got {err:?}");
         assert!(format!("{err}").contains("unredacted"));
     }

@@ -17,8 +17,8 @@ pub mod peaks;
 pub mod resample;
 pub mod vad;
 
-use ca_core::audio::{AcousticFeatures, AudioBuffer, AudioMeta, PauseRegion, WaveformPeaks};
 use ca_core::audio::TARGET_SAMPLE_RATE;
+use ca_core::audio::{AcousticFeatures, AudioBuffer, AudioMeta, PauseRegion, WaveformPeaks};
 use ca_core::error::Result;
 use std::path::Path;
 

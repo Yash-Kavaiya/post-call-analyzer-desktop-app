@@ -57,8 +57,14 @@ pub fn extract_windows(
         let mut pos = s0;
         while pos + win <= e0 {
             let frame = &samples[pos..pos + win];
-            let (centroid, rolloff) =
-                spectral_shape(frame, sample_rate, fft_size, &fft, &mut spectrum, &mut scratch);
+            let (centroid, rolloff) = spectral_shape(
+                frame,
+                sample_rate,
+                fft_size,
+                &fft,
+                &mut spectrum,
+                &mut scratch,
+            );
 
             let energy: f64 = frame.iter().map(|x| (*x as f64) * (*x as f64)).sum();
             let rms = (energy / frame.len() as f64).sqrt();
@@ -95,7 +101,10 @@ fn spectral_shape(
         *v *= w;
     }
 
-    if fft.process_with_scratch(&mut buf, spectrum, scratch).is_err() {
+    if fft
+        .process_with_scratch(&mut buf, spectrum, scratch)
+        .is_err()
+    {
         return (0.0, 0.0);
     }
 
@@ -125,7 +134,6 @@ fn spectral_shape(
 
     (centroid, rolloff)
 }
-
 
 /// Mean pitch over the window, delegating to `ca-audio`'s estimator so the
 /// octave-error handling lives in exactly one place.

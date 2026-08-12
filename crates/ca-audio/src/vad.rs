@@ -228,7 +228,11 @@ mod tests {
         let mut s = quiet(2.0);
         s.extend(tone(2.0, 0.4));
         let r = detect(&s, SR, 0.35);
-        assert!((0.0..=1.0).contains(&r.silence_ratio), "{}", r.silence_ratio);
+        assert!(
+            (0.0..=1.0).contains(&r.silence_ratio),
+            "{}",
+            r.silence_ratio
+        );
         assert!(r.silence_ratio > 0.3, "expected substantial silence");
     }
 

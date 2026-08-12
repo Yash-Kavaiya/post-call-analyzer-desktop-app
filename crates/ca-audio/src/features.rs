@@ -240,7 +240,10 @@ mod tests {
         let s = tone(220.0, 2.0, 0.5);
         let v = vad::detect(&s, SR, 0.35);
         let pitch = extract(&s, SR, &v).mean_pitch_hz.expect("no pitch");
-        assert!((pitch - 220.0).abs() < 12.0, "expected ~220 Hz, got {pitch}");
+        assert!(
+            (pitch - 220.0).abs() < 12.0,
+            "expected ~220 Hz, got {pitch}"
+        );
     }
 
     #[test]

@@ -1,0 +1,79 @@
+# Dependabot keeps dependencies current so that a security update is a
+# routine one-line bump rather than an emergency migration across a year of
+# accumulated drift.
+#
+# Updates are grouped aggressively. Fourteen crates and two npm roots produce
+# more pull requests than anyone reviews properly, and an unreviewed
+# dependency PR is worse than no dependency PR.
+version: 2
+
+updates:
+  # ── Rust workspace ─────────────────────────────────────────
+  - package-ecosystem: cargo
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+      time: "06:00"
+    open-pull-requests-limit: 5
+    commit-message:
+      prefix: "chore(deps)"
+      prefix-development: "chore(deps-dev)"
+    labels: [dependencies, rust]
+    groups:
+      # Patch and minor bumps are reviewed together as one "routine
+      # maintenance" PR. Major bumps arrive alone, because those are the ones
+      # that need a person to read a changelog.
+      cargo-minor-and-patch:
+        applies-to: version-updates
+        update-types: [minor, patch]
+      cargo-security:
+        applies-to: security-updates
+        patterns: ["*"]
+
+  # ── Desktop frontend ───────────────────────────────────────
+  - package-ecosystem: npm
+    directory: /apps/desktop/ui
+    schedule:
+      interval: weekly
+      day: monday
+      time: "06:00"
+    open-pull-requests-limit: 5
+    commit-message:
+      prefix: "chore(deps)"
+      prefix-development: "chore(deps-dev)"
+    labels: [dependencies, frontend]
+    groups:
+      ui-minor-and-patch:
+        applies-to: version-updates
+        update-types: [minor, patch]
+      ui-security:
+        applies-to: security-updates
+        patterns: ["*"]
+
+  # ── Tauri CLI wrapper ──────────────────────────────────────
+  - package-ecosystem: npm
+    directory: /apps/desktop
+    schedule:
+      interval: monthly
+    open-pull-requests-limit: 2
+    commit-message:
+      prefix: "chore(deps)"
+    labels: [dependencies, tauri]
+
+  # ── The workflows themselves ───────────────────────────────
+  # Actions are third-party code running with a repository token. They need
+  # updating for the same reason dependencies do, and are forgotten more often.
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+      time: "06:00"
+    open-pull-requests-limit: 3
+    commit-message:
+      prefix: "ci(deps)"
+    labels: [dependencies, ci]
+    groups:
+      actions:
+        patterns: ["*"]

@@ -22,10 +22,16 @@ pub struct Message {
 
 impl Message {
     pub fn system(c: impl Into<String>) -> Self {
-        Self { role: Role::System, content: c.into() }
+        Self {
+            role: Role::System,
+            content: c.into(),
+        }
     }
     pub fn user(c: impl Into<String>) -> Self {
-        Self { role: Role::User, content: c.into() }
+        Self {
+            role: Role::User,
+            content: c.into(),
+        }
     }
 }
 
@@ -42,7 +48,12 @@ pub struct ChatRequest {
 
 impl ChatRequest {
     pub fn new(messages: Vec<Message>) -> Self {
-        Self { messages, temperature: 0.2, max_tokens: None, json_schema: None }
+        Self {
+            messages,
+            temperature: 0.2,
+            max_tokens: None,
+            json_schema: None,
+        }
     }
 
     pub fn with_schema(mut self, schema: serde_json::Value) -> Self {
@@ -115,7 +126,12 @@ pub struct TranscribeOptions {
 
 impl Default for TranscribeOptions {
     fn default() -> Self {
-        Self { language: None, diarize: false, word_timestamps: true, num_speakers_hint: Some(2) }
+        Self {
+            language: None,
+            diarize: false,
+            word_timestamps: true,
+            num_speakers_hint: Some(2),
+        }
     }
 }
 
@@ -128,7 +144,8 @@ pub trait Transcriber: Send + Sync {
     fn provides_diarization(&self) -> bool {
         false
     }
-    async fn transcribe(&self, audio: &AudioBuffer, opts: &TranscribeOptions) -> Result<Transcript>;
+    async fn transcribe(&self, audio: &AudioBuffer, opts: &TranscribeOptions)
+        -> Result<Transcript>;
 }
 
 // ---------------------------------------------------------------- Diarization
@@ -145,7 +162,11 @@ pub struct SpeakerTurn {
 #[async_trait]
 pub trait Diarizer: Send + Sync {
     fn name(&self) -> &str;
-    async fn diarize(&self, audio: &AudioBuffer, num_speakers: Option<u8>) -> Result<Vec<SpeakerTurn>>;
+    async fn diarize(
+        &self,
+        audio: &AudioBuffer,
+        num_speakers: Option<u8>,
+    ) -> Result<Vec<SpeakerTurn>>;
 }
 
 // ---------------------------------------------------------------- Ingestion

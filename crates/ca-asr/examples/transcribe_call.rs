@@ -9,7 +9,9 @@ use std::time::Instant;
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
-    let path = std::env::args().nth(1).ok_or("usage: transcribe_call <file>")?;
+    let path = std::env::args()
+        .nth(1)
+        .ok_or("usage: transcribe_call <file>")?;
     let path = PathBuf::from(path);
 
     // Repo-relative so the example works from a clean checkout.

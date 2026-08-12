@@ -108,13 +108,13 @@ const STOPWORDS: &[&str] = &[
     "for", "with", "about", "into", "to", "from", "in", "on", "off", "over", "under", "again",
     "is", "am", "are", "was", "were", "be", "been", "being", "have", "has", "had", "do", "does",
     "did", "will", "would", "should", "could", "can", "may", "might", "must", "i", "you", "he",
-    "she", "it", "we", "they", "me", "him", "her", "us", "them", "my", "your", "his", "its",
-    "our", "their", "this", "that", "these", "those", "there", "here", "what", "which", "who",
-    "when", "where", "why", "how", "all", "any", "both", "each", "some", "such", "no", "not",
-    "only", "own", "same", "than", "too", "very", "just", "now", "okay", "ok", "yes", "yeah",
-    "yep", "no", "hello", "hi", "hey", "please", "thank", "thanks", "sorry", "right", "well",
-    "like", "know", "get", "got", "going", "go", "one", "two", "up", "out", "down", "let",
-    "sure", "actually", "really", "mean", "say", "said", "see", "think", "want", "need",
+    "she", "it", "we", "they", "me", "him", "her", "us", "them", "my", "your", "his", "its", "our",
+    "their", "this", "that", "these", "those", "there", "here", "what", "which", "who", "when",
+    "where", "why", "how", "all", "any", "both", "each", "some", "such", "no", "not", "only",
+    "own", "same", "than", "too", "very", "just", "now", "okay", "ok", "yes", "yeah", "yep", "no",
+    "hello", "hi", "hey", "please", "thank", "thanks", "sorry", "right", "well", "like", "know",
+    "get", "got", "going", "go", "one", "two", "up", "out", "down", "let", "sure", "actually",
+    "really", "mean", "say", "said", "see", "think", "want", "need",
 ];
 
 /// Longest common word length worth ignoring outright.
@@ -125,7 +125,11 @@ const MAX_KEYWORDS: usize = 12;
 /// Compute every metric in one pass over the transcript.
 pub fn analyse(transcript: &Transcript) -> ConversationMetrics {
     let mut segments: Vec<&Segment> = transcript.segments.iter().collect();
-    segments.sort_by(|a, b| a.start.partial_cmp(&b.start).unwrap_or(std::cmp::Ordering::Equal));
+    segments.sort_by(|a, b| {
+        a.start
+            .partial_cmp(&b.start)
+            .unwrap_or(std::cmp::Ordering::Equal)
+    });
 
     let mut metrics = ConversationMetrics {
         speakers: speaker_stats(&segments),
@@ -143,9 +147,9 @@ pub fn analyse(transcript: &Transcript) -> ConversationMetrics {
         .map(|s| s.secs)
         .fold(0.0_f64, f64::max);
 
-    let duration = transcript.duration_secs.max(
-        segments.last().map(|s| s.end).unwrap_or(0.0),
-    );
+    let duration = transcript
+        .duration_secs
+        .max(segments.last().map(|s| s.end).unwrap_or(0.0));
     if duration > 0.0 {
         metrics.silence_ratio = (metrics.total_silence_secs / duration).clamp(0.0, 1.0) as f32;
     }
@@ -281,7 +285,12 @@ fn monologues(segments: &[&Segment]) -> Vec<Monologue> {
     }
     if let Some((speaker, start, end)) = run {
         if end - start >= MONOLOGUE_SECS {
-            out.push(Monologue { speaker_index: speaker, start, end, secs: end - start });
+            out.push(Monologue {
+                speaker_index: speaker,
+                start,
+                end,
+                secs: end - start,
+            });
         }
     }
     out
@@ -349,7 +358,11 @@ fn keywords(segments: &[&Segment]) -> Vec<Keyword> {
     let mut out: Vec<Keyword> = counts
         .into_iter()
         .filter(|(_, (count, _))| *count > 1)
-        .map(|(term, (count, first_at))| Keyword { term, count, first_at })
+        .map(|(term, (count, first_at))| Keyword {
+            term,
+            count,
+            first_at,
+        })
         .collect();
 
     // Frequency first; alphabetical within a tie so the order is stable across
@@ -404,7 +417,11 @@ mod tests {
         ]);
         let m = analyse(&t);
         let agent = m.speakers.iter().find(|s| s.speaker_index == 0).unwrap();
-        assert!((agent.talk_share - 0.75).abs() < 1e-4, "got {}", agent.talk_share);
+        assert!(
+            (agent.talk_share - 0.75).abs() < 1e-4,
+            "got {}",
+            agent.talk_share
+        );
         assert_eq!(m.agent_talk_share, Some(agent.talk_share));
     }
 
@@ -441,7 +458,10 @@ mod tests {
             seg("b", 1, SpeakerRole::Customer, 5.0, 6.0, "mm"),
             seg("c", 0, SpeakerRole::Agent, 21.0, 25.0, "continuing"),
         ]);
-        assert!(analyse(&t).silences.is_empty(), "invented a silence inside speech");
+        assert!(
+            analyse(&t).silences.is_empty(),
+            "invented a silence inside speech"
+        );
     }
 
     #[test]
@@ -455,7 +475,11 @@ mod tests {
         assert_eq!(m.silences[0].after_speaker, Some(0));
         assert!((m.silences[0].secs - 15.0).abs() < 1e-6);
         assert!((m.longest_silence_secs - 15.0).abs() < 1e-6);
-        assert!((m.silence_ratio - 0.5).abs() < 1e-4, "got {}", m.silence_ratio);
+        assert!(
+            (m.silence_ratio - 0.5).abs() < 1e-4,
+            "got {}",
+            m.silence_ratio
+        );
     }
 
     #[test]
@@ -483,19 +507,43 @@ mod tests {
     #[test]
     fn keywords_rank_by_frequency_and_ignore_filler() {
         let t = transcript(vec![
-            seg("a", 0, SpeakerRole::Agent, 0.0, 10.0, "the payment failed and the payment retry"),
-            seg("b", 1, SpeakerRole::Customer, 11.0, 20.0, "yes the payment failed again"),
+            seg(
+                "a",
+                0,
+                SpeakerRole::Agent,
+                0.0,
+                10.0,
+                "the payment failed and the payment retry",
+            ),
+            seg(
+                "b",
+                1,
+                SpeakerRole::Customer,
+                11.0,
+                20.0,
+                "yes the payment failed again",
+            ),
         ]);
         let m = analyse(&t);
         assert_eq!(m.keywords[0].term, "payment");
         assert_eq!(m.keywords[0].count, 3);
-        assert!(m.keywords.iter().all(|k| k.term != "the"), "stopword survived");
+        assert!(
+            m.keywords.iter().all(|k| k.term != "the"),
+            "stopword survived"
+        );
         assert!(m.keywords.iter().all(|k| k.term != "yes"));
     }
 
     #[test]
     fn a_word_said_once_is_not_a_keyword() {
-        let t = transcript(vec![seg("a", 0, SpeakerRole::Agent, 0.0, 5.0, "escalation")]);
+        let t = transcript(vec![seg(
+            "a",
+            0,
+            SpeakerRole::Agent,
+            0.0,
+            5.0,
+            "escalation",
+        )]);
         assert!(analyse(&t).keywords.is_empty());
     }
 
@@ -505,24 +553,55 @@ mod tests {
         // and a real number must never become one either.
         let mut a = seg("a", 0, SpeakerRole::Agent, 0.0, 5.0, "call 9876543210 now");
         a.redacted_text = Some("call [PHONE_1] now".into());
-        let mut b = seg("b", 0, SpeakerRole::Agent, 6.0, 10.0, "call 9876543210 again");
+        let mut b = seg(
+            "b",
+            0,
+            SpeakerRole::Agent,
+            6.0,
+            10.0,
+            "call 9876543210 again",
+        );
         b.redacted_text = Some("call [PHONE_1] again".into());
         let m = analyse(&transcript(vec![a, b]));
         let terms: Vec<&str> = m.keywords.iter().map(|k| k.term.as_str()).collect();
         assert!(!terms.iter().any(|t| t.contains("phone")), "{terms:?}");
-        assert!(!terms.iter().any(|t| t.contains("9876")), "raw PII became a keyword");
+        assert!(
+            !terms.iter().any(|t| t.contains("9876")),
+            "raw PII became a keyword"
+        );
     }
 
     #[test]
     fn questions_are_attributed_to_whoever_asked_them() {
         let t = transcript(vec![
-            seg("a", 0, SpeakerRole::Agent, 0.0, 5.0, "can I take your order number?"),
+            seg(
+                "a",
+                0,
+                SpeakerRole::Agent,
+                0.0,
+                5.0,
+                "can I take your order number?",
+            ),
             seg("b", 1, SpeakerRole::Customer, 6.0, 9.0, "it is 4417"),
             seg("c", 0, SpeakerRole::Agent, 10.0, 14.0, "anything else?"),
         ]);
         let m = analyse(&t);
-        assert_eq!(m.speakers.iter().find(|s| s.speaker_index == 0).unwrap().questions, 2);
-        assert_eq!(m.speakers.iter().find(|s| s.speaker_index == 1).unwrap().questions, 0);
+        assert_eq!(
+            m.speakers
+                .iter()
+                .find(|s| s.speaker_index == 0)
+                .unwrap()
+                .questions,
+            2
+        );
+        assert_eq!(
+            m.speakers
+                .iter()
+                .find(|s| s.speaker_index == 1)
+                .unwrap()
+                .questions,
+            0
+        );
     }
 
     #[test]
@@ -530,12 +609,23 @@ mod tests {
         // 10 words in 30 seconds of speech is 20 wpm — not 10 words over the
         // whole call, which would depend on how long the other person talked.
         let t = transcript(vec![
-            seg("a", 0, SpeakerRole::Agent, 0.0, 30.0, "one two three four five six seven eight nine ten"),
+            seg(
+                "a",
+                0,
+                SpeakerRole::Agent,
+                0.0,
+                30.0,
+                "one two three four five six seven eight nine ten",
+            ),
             seg("b", 1, SpeakerRole::Customer, 30.0, 120.0, "yes"),
         ]);
         let m = analyse(&t);
         let agent = m.speakers.iter().find(|s| s.speaker_index == 0).unwrap();
-        assert!((agent.words_per_minute - 20.0).abs() < 0.01, "got {}", agent.words_per_minute);
+        assert!(
+            (agent.words_per_minute - 20.0).abs() < 0.01,
+            "got {}",
+            agent.words_per_minute
+        );
     }
 
     #[test]
@@ -560,7 +650,14 @@ mod tests {
 
     #[test]
     fn metrics_cross_the_wire_as_camel_case() {
-        let t = transcript(vec![seg("a", 0, SpeakerRole::Agent, 0.0, 10.0, "hello there")]);
+        let t = transcript(vec![seg(
+            "a",
+            0,
+            SpeakerRole::Agent,
+            0.0,
+            10.0,
+            "hello there",
+        )]);
         let v = serde_json::to_value(analyse(&t)).unwrap();
         for k in v.as_object().unwrap().keys() {
             assert!(!k.contains('_'), "ConversationMetrics serialises `{k}`");
