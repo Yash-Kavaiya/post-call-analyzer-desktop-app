@@ -1,0 +1,1 @@
+{"default":{"identifier":"default","description":"What the main window is allowed to ask the Rust side to do. Tauri v2 denies every command that is not listed here, so an omission shows up at runtime as `not allowed by ACL` rather than at build time.","local":true,"windows":["main"],"permissions":["core:default","dialog:allow-open"]}}

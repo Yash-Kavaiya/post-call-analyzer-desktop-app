@@ -1,0 +1,241 @@
+/*
+ * Corpus report and agent health.
+ *
+ * A page that is scanned rather than read: state carries colour, everything
+ * else stays quiet. The one place colour is used for emphasis is a lift away
+ * from 1.0 and a non-zero failure count — the two things worth acting on.
+ */
+
+.in-root {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  max-width: 1100px;
+}
+
+.in-tiles {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 12px;
+}
+
+.in-tile {
+  padding: 16px 18px;
+  border: 1px solid var(--outline);
+  border-radius: var(--md-sys-shape-corner-large, 16px);
+  background: var(--surface-container-low);
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.in-tile-label {
+  font-size: 11px;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--on-surface-variant);
+}
+
+.in-tile-value {
+  font-size: 26px;
+  font-variant-numeric: tabular-nums;
+}
+
+.in-card {
+  padding: 18px 20px;
+  border: 1px solid var(--outline);
+  border-radius: var(--md-sys-shape-corner-large, 16px);
+  background: var(--surface-container-low);
+}
+
+.in-card h3 {
+  margin: 0 0 8px;
+  font-size: 15px;
+  font-weight: 500;
+  color: var(--on-surface-variant);
+}
+
+.in-hint {
+  margin: 0 0 12px;
+  font-size: 12.5px;
+  line-height: 1.55;
+  color: var(--on-surface-variant);
+  max-width: 72ch;
+}
+
+.in-columns {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 14px;
+}
+
+/* --------------------------------------------------------------- histogram */
+
+.in-hist {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.in-hist li {
+  display: grid;
+  grid-template-columns: 4.2rem 1fr 2.6rem;
+  align-items: center;
+  gap: 12px;
+  font-size: 13px;
+}
+
+.in-hist-label,
+.in-hist-count {
+  color: var(--on-surface-variant);
+  font-variant-numeric: tabular-nums;
+}
+
+.in-hist-count {
+  text-align: right;
+}
+
+.in-hist-bar {
+  height: 10px;
+  border-radius: 999px;
+  background: var(--surface-container-high);
+  overflow: hidden;
+}
+
+.in-hist-bar > div {
+  height: 100%;
+  min-width: 3px;
+  background: var(--md-sys-color-primary);
+  border-radius: 999px;
+}
+
+/* ---------------------------------------------------------------- patterns */
+
+.in-patterns {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.in-patterns li {
+  padding: 11px 13px;
+  border-radius: var(--md-sys-shape-corner-medium, 12px);
+  background: var(--surface-container-high);
+}
+
+.in-pattern-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: baseline;
+  flex-wrap: wrap;
+}
+
+.in-lift {
+  font-size: 12.5px;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+/* Keyed to whether the finding is good news, not to whether the number went
+   up. More escalation risk is bad; a higher QA score is good, and colouring
+   both red made a positive result look like a warning. */
+.in-lift-bad {
+  color: var(--error, #B3261E);
+}
+
+.in-lift-good {
+  color: var(--success, #1E8E3E);
+}
+
+.in-pattern-detail {
+  margin: 5px 0 0;
+  font-size: 12.5px;
+  line-height: 1.55;
+  color: var(--on-surface-variant);
+}
+
+/* ----------------------------------------------------------------- counted */
+
+.in-counted {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.in-counted li {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  font-size: 13px;
+  padding: 3px 0;
+}
+
+.in-counted-n {
+  color: var(--on-surface-variant);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+/* ------------------------------------------------------------------- table */
+
+.in-scroller {
+  overflow-x: auto;
+}
+
+.in-table {
+  width: 100%;
+  min-width: 620px;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+
+.in-table th,
+.in-table td {
+  text-align: left;
+  padding: 9px 12px;
+  border-bottom: 1px solid var(--outline-variant, var(--outline));
+}
+
+.in-table th {
+  font-size: 10.5px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--on-surface-variant);
+  font-weight: 500;
+}
+
+.in-table tbody tr:last-child td {
+  border-bottom: 0;
+}
+
+.in-num {
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.in-bad {
+  color: var(--error, #B3261E);
+}
+
+.in-state,
+.in-error {
+  margin: 0;
+  font-size: 13.5px;
+  line-height: 1.6;
+  color: var(--on-surface-variant);
+  max-width: 70ch;
+}
+
+.in-error {
+  color: var(--error, #B3261E);
+}

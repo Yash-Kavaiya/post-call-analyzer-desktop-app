@@ -1,0 +1,19 @@
+[package]
+name = "ca-audio"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+
+[dependencies]
+ca-core.workspace = true
+serde.workspace = true
+tracing.workspace = true
+thiserror.workspace = true
+
+# Pure-Rust decoding (MPL-2.0) — deliberately not ffmpeg, whose GPL build
+# would force GPL on the whole product.
+symphonia = { version = "0.5.5", features = ["all"] }
+realfft = "3"
+ebur128 = "0.1"
+nnnoiseless = { version = "0.5", default-features = false }

@@ -1,0 +1,233 @@
+/*
+ * Settings.
+ *
+ * A form, so the priorities are legible labels, obvious grouping and controls
+ * that look like controls. Buttons are scoped to `.set-actions > button` and
+ * `.set-row > button` rather than `.set-card button`, so a nested component
+ * dropped in later does not silently inherit pill styling.
+ */
+
+.set-root {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  max-width: 940px;
+}
+
+.set-card {
+  padding: 20px 22px;
+  background: var(--surface-container-low);
+  border: 1px solid var(--outline);
+  border-radius: var(--md-sys-shape-corner-large, 16px);
+}
+
+.set-card h3 {
+  margin: 0 0 6px;
+  font-size: 15px;
+  font-weight: 500;
+  color: var(--on-surface-variant);
+}
+
+.set-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 16px;
+  margin-top: 14px;
+}
+
+.set-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 12px;
+  color: var(--on-surface-variant);
+  min-width: 0;
+}
+
+.set-wide {
+  margin-top: 14px;
+}
+
+.set-field select,
+.set-field input {
+  padding: 9px 11px;
+  border: 1px solid var(--outline);
+  border-radius: 10px;
+  background: var(--surface);
+  color: var(--on-surface);
+  font: inherit;
+  font-size: 14px;
+  min-width: 0;
+}
+
+.set-field select:focus-visible,
+.set-field input:focus-visible,
+.set-key:focus-visible {
+  outline: 2px solid var(--md-sys-color-primary);
+  outline-offset: 1px;
+}
+
+.set-check {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  font-size: 13.5px;
+  line-height: 1.5;
+}
+
+.set-check input {
+  margin-top: 3px;
+  flex-shrink: 0;
+}
+
+.set-check em {
+  color: var(--on-surface-variant);
+  font-style: normal;
+}
+
+.set-row {
+  display: flex;
+  gap: 10px;
+  margin-top: 12px;
+  flex-wrap: wrap;
+}
+
+.set-key {
+  flex: 1;
+  min-width: 240px;
+  padding: 9px 11px;
+  border: 1px solid var(--outline);
+  border-radius: 10px;
+  background: var(--surface);
+  color: var(--on-surface);
+  font: inherit;
+  font-size: 14px;
+  /* Wide tracking so a pasted key's length is legible as dots. */
+  letter-spacing: 0.08em;
+}
+
+.set-endpoint {
+  margin: 14px 0 0;
+  font-size: 12.5px;
+  color: var(--on-surface-variant);
+}
+
+.set-endpoint code {
+  padding: 2px 7px;
+  border-radius: 6px;
+  background: var(--surface-container-high);
+  font-size: 12px;
+}
+
+.set-hint {
+  margin: 6px 0 0;
+  font-size: 12.5px;
+  color: var(--on-surface-variant);
+}
+
+/* Key state is the one thing on this screen that must be readable at a glance:
+   it decides whether pressing anything else will work. */
+.set-keystate {
+  margin: 12px 0 0;
+  font-size: 13.5px;
+}
+
+.set-keystate code {
+  padding: 1px 6px;
+  border-radius: 5px;
+  background: var(--surface-container-high);
+  font-size: 12px;
+}
+
+.set-keystate-credentialStore,
+.set-keystate-environment,
+.set-keystate-notRequired {
+  color: var(--success, #1E8E3E);
+}
+
+.set-keystate-missing {
+  color: var(--on-surface-variant);
+}
+
+.set-actions {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.set-actions > button,
+.set-row > button {
+  padding: 9px 19px;
+  border: 0;
+  border-radius: 999px;
+  background: var(--md-sys-color-primary);
+  color: var(--on-primary, #fff);
+  font: inherit;
+  cursor: pointer;
+}
+
+.set-actions > button.set-ghost,
+.set-row > button.set-ghost {
+  background: transparent;
+  border: 1px solid var(--outline);
+  color: inherit;
+}
+
+.set-actions > button:disabled,
+.set-row > button:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+
+.set-actions > button:focus-visible,
+.set-row > button:focus-visible {
+  outline: 2px solid var(--md-sys-color-primary);
+  outline-offset: 2px;
+}
+
+.set-ok {
+  margin: 0;
+  color: var(--success, #1E8E3E);
+  font-size: 13.5px;
+}
+
+.set-error {
+  margin: 0;
+  color: var(--error, #B3261E);
+  font-size: 13.5px;
+}
+
+.set-state {
+  color: var(--on-surface-variant);
+}
+
+/* A locked-on setting. States its value in words rather than as a control the
+   user cannot operate — a disabled checkbox reads as "off" at a glance. */
+.set-locked {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin: 0;
+  font-size: 13.5px;
+  line-height: 1.5;
+  color: var(--on-surface-variant);
+}
+
+.set-lock-chip {
+  padding: 3px 10px;
+  border-radius: 999px;
+  background: var(--success-container, rgba(30, 142, 62, 0.14));
+  color: var(--success, #1E8E3E);
+  font-size: 11px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+/* Make the interactive checkbox unmistakably on when it is on. */
+.set-check input {
+  accent-color: var(--md-sys-color-primary);
+  width: 16px;
+  height: 16px;
+}

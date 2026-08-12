@@ -1,0 +1,208 @@
+/*
+ * Conversation metrics.
+ *
+ * Buttons are addressed through their container so the surrounding screen's
+ * pill styling cannot capture them, and so this component cannot capture
+ * anything nested inside it later.
+ */
+
+.cm-root {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.cm-block h4 {
+  margin: 0 0 10px;
+  font-size: 12px;
+  font-weight: 500;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--on-surface-variant);
+}
+
+/* ---------------------------------------------------------------- talk time */
+
+.cm-bar {
+  display: flex;
+  height: 10px;
+  border-radius: 999px;
+  overflow: hidden;
+  background: var(--surface-container-high);
+}
+
+.cm-bar-seg {
+  height: 100%;
+  min-width: 2px;
+}
+
+/* Speaker colours match the waveform and transcript, so one person is one
+   colour everywhere on the page. */
+.cm-spk-0 { background: var(--speaker-0, #1A73E8); }
+.cm-spk-1 { background: var(--speaker-1, #12A594); }
+.cm-spk-2 { background: var(--speaker-2, #B7791F); }
+.cm-spk-3 { background: var(--speaker-3, #9334E6); }
+
+.cm-legend {
+  list-style: none;
+  margin: 12px 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.cm-legend li {
+  display: grid;
+  grid-template-columns: 10px auto 3.2rem 1fr;
+  align-items: baseline;
+  gap: 8px;
+  font-size: 13px;
+}
+
+.cm-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  align-self: center;
+}
+
+.cm-legend-name { font-weight: 500; }
+
+.cm-legend-val {
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+
+.cm-legend-sub {
+  color: var(--on-surface-variant);
+  font-size: 12px;
+}
+
+/* -------------------------------------------------------------------- tiles */
+
+.cm-tiles {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(110px, 1fr));
+  gap: 10px;
+  margin: 0;
+}
+
+.cm-tile {
+  padding: 11px 13px;
+  border-radius: var(--md-sys-shape-corner-medium, 12px);
+  background: var(--surface-container-high);
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.cm-tile dt {
+  font-size: 11px;
+  color: var(--on-surface-variant);
+}
+
+.cm-tile dd {
+  margin: 0;
+  font-size: 20px;
+  font-variant-numeric: tabular-nums;
+}
+
+.cm-tile-sub {
+  font-size: 11px;
+  color: var(--on-surface-variant);
+}
+
+/* ------------------------------------------------------------------- events */
+
+.cm-events {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.cm-events > li > button {
+  display: grid;
+  grid-template-columns: 3.4rem 1fr auto;
+  gap: 12px;
+  align-items: baseline;
+  width: 100%;
+  padding: 7px 10px;
+  border: 0;
+  border-radius: var(--md-sys-shape-corner-small, 8px);
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  font-size: 13px;
+  text-align: left;
+  cursor: pointer;
+}
+
+.cm-events > li > button:hover {
+  background: var(--surface-container-high);
+}
+
+.cm-events > li > button:focus-visible {
+  outline: 2px solid var(--md-sys-color-primary);
+  outline-offset: -2px;
+}
+
+.cm-at {
+  font-variant-numeric: tabular-nums;
+  color: var(--md-sys-color-primary);
+}
+
+.cm-ev-val {
+  font-variant-numeric: tabular-nums;
+  color: var(--on-surface-variant);
+  font-size: 12px;
+}
+
+.cm-more {
+  margin: 6px 0 0 10px;
+  font-size: 12px;
+  color: var(--on-surface-variant);
+}
+
+/* ----------------------------------------------------------------- keywords */
+
+.cm-keywords {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+}
+
+.cm-keywords > li > button {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 5px 11px;
+  border: 1px solid var(--outline);
+  border-radius: 999px;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  font-size: 12.5px;
+  cursor: pointer;
+}
+
+.cm-keywords > li > button:hover {
+  background: var(--surface-container-high);
+}
+
+.cm-keywords > li > button:focus-visible {
+  outline: 2px solid var(--md-sys-color-primary);
+  outline-offset: 1px;
+}
+
+.cm-kw-count {
+  font-variant-numeric: tabular-nums;
+  font-size: 11px;
+  color: var(--on-surface-variant);
+}

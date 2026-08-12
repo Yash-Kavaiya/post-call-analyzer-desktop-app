@@ -1,0 +1,27 @@
+/*
+ * Shared speaker palette + waveform role tokens.
+ *
+ * Imported by both the waveform and the transcript so a speaker is the same
+ * colour in both. Every value is a CSS custom property: the theme layer can
+ * override any `--ca-*` token without touching component code.
+ *
+ * Speaker 0 tracks the design system's primary colour. The remaining slots are
+ * declared here (in hsl, never hex) because the design token set does not
+ * define a categorical palette; override them from the theme if it grows one.
+ */
+:root {
+  --ca-speaker-0: var(--md-sys-color-primary);
+  --ca-speaker-1: hsl(174, 62%, 36%);
+  --ca-speaker-2: hsl(28, 82%, 52%);
+  --ca-speaker-3: hsl(330, 62%, 56%);
+  --ca-speaker-4: hsl(200, 70%, 46%);
+  --ca-speaker-5: hsl(96, 45%, 42%);
+
+  /* Waveform chrome — all derived from the shared surface tokens. */
+  --ca-waveform-background: var(--surface);
+  --ca-waveform-unassigned: var(--outline);
+  --ca-waveform-pause: var(--on-surface-variant);
+  --ca-waveform-center-line: var(--outline);
+  --ca-waveform-playhead: var(--md-sys-color-primary);
+  --ca-waveform-cursor: var(--on-surface-variant);
+}

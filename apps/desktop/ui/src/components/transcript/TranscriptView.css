@@ -1,0 +1,136 @@
+/*
+ * Synced transcript.
+ *
+ * Every colour comes from a theme token, except the per-speaker accent, which
+ * arrives as the `--ca-segment-color` custom property set inline by the
+ * component. That keeps speaker colours identical between the transcript and
+ * the waveform without either one hardcoding a palette.
+ */
+
+.tv-root {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  height: 100%;
+}
+
+.tv-scroll {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  scroll-behavior: smooth;
+}
+
+.tv-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.tv-segment {
+  display: block;
+  width: 100%;
+  text-align: left;
+  padding: 9px 12px 9px 14px;
+  border: 0;
+  /* The speaker accent lives on the leading edge so a glance down the column
+     reads as a conversation rather than a wall of text. */
+  border-left: 3px solid var(--ca-segment-color, var(--outline));
+  border-radius: var(--md-sys-shape-corner-small, 8px);
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+  transition: background 0.12s ease;
+}
+
+.tv-segment:hover {
+  background: var(--surface-container-high);
+}
+
+.tv-segment:focus-visible {
+  outline: 2px solid var(--md-sys-color-primary);
+  outline-offset: -2px;
+}
+
+.tv-segment-active {
+  background: var(--surface-container-high);
+}
+
+.tv-meta {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 3px;
+  font-size: 11px;
+  color: var(--on-surface-variant);
+}
+
+.tv-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--ca-segment-color, var(--outline));
+  flex-shrink: 0;
+}
+
+.tv-speaker {
+  font-weight: 500;
+  color: var(--ca-segment-color, var(--on-surface-variant));
+}
+
+.tv-time {
+  font-variant-numeric: tabular-nums;
+}
+
+.tv-lang,
+.tv-badge {
+  padding: 1px 7px;
+  border-radius: 999px;
+  background: var(--surface-container-high);
+  font-size: 10px;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+}
+
+.tv-badge {
+  /* Redaction is on: worth stating, since what is shown is not what was said. */
+  color: var(--md-sys-color-primary);
+}
+
+.tv-text {
+  font-size: 14px;
+  line-height: 1.6;
+}
+
+.tv-word {
+  border-radius: 3px;
+  padding: 0 1px;
+  cursor: pointer;
+}
+
+.tv-word:hover {
+  background: var(--surface-container-high);
+}
+
+.tv-word-active {
+  background: var(--ca-segment-color, var(--md-sys-color-primary));
+  color: var(--on-primary, #fff);
+}
+
+/* Where ASR was unsure. Deliberately subtle — a reviewer should notice it when
+   checking a quote, not be distracted by it while reading. */
+.tv-word-low {
+  text-decoration: underline dotted;
+  text-decoration-color: var(--on-surface-variant);
+  text-underline-offset: 3px;
+}
+
+.tv-empty {
+  padding: 28px 12px;
+  color: var(--on-surface-variant);
+  font-size: 13px;
+}

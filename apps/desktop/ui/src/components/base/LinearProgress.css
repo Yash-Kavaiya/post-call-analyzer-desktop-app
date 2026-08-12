@@ -1,0 +1,196 @@
+/* Material 3 Linear progress indicator - determinate + indeterminate */
+
+.m3-linear-progress__wrapper {
+  display: flex;
+  align-items: center;
+  gap: var(--md-sys-spacing-3);
+  width: 100%;
+}
+
+.m3-linear-progress {
+  --m3-progress-thickness: 4px;
+  --m3-progress-value: 0%;
+  --m3-progress-buffer: 0%;
+  --m3-progress-color: var(--primary);
+  --m3-progress-track-color: var(--secondary-container);
+
+  position: relative;
+  flex: 1 1 auto;
+  height: var(--m3-progress-thickness);
+  min-width: 0;
+  border-radius: var(--md-sys-shape-corner-full);
+  overflow: hidden;
+  contain: paint;
+}
+
+/* ----------------------------------------------------------------- tones -- */
+
+.m3-linear-progress--primary {
+  --m3-progress-color: var(--primary);
+  --m3-progress-track-color: var(--secondary-container);
+}
+
+.m3-linear-progress--success {
+  --m3-progress-color: var(--success);
+  --m3-progress-track-color: var(--success-container);
+}
+
+.m3-linear-progress--warning {
+  --m3-progress-color: var(--warning);
+  --m3-progress-track-color: var(--warning-container);
+}
+
+.m3-linear-progress--error {
+  --m3-progress-color: var(--error);
+  --m3-progress-track-color: var(--error-container);
+}
+
+/* ----------------------------------------------------------------- parts -- */
+
+.m3-linear-progress__track {
+  position: absolute;
+  inset: 0;
+  background: var(--m3-progress-track-color);
+  border-radius: inherit;
+}
+
+.m3-linear-progress__buffer {
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: var(--m3-progress-buffer);
+  background: color-mix(
+    in srgb,
+    var(--m3-progress-color) 30%,
+    transparent
+  );
+  border-radius: inherit;
+  transition: width var(--md-sys-motion-duration-long)
+    var(--md-sys-motion-easing-standard);
+}
+
+.m3-linear-progress__indicator {
+  position: absolute;
+  inset: 0 auto 0 0;
+  background: var(--m3-progress-color);
+  border-radius: inherit;
+}
+
+/* ----------------------------------------------------------- determinate -- */
+
+.m3-linear-progress--determinate .m3-linear-progress__indicator {
+  width: var(--m3-progress-value);
+  transition: width var(--md-sys-motion-duration-long)
+    var(--md-sys-motion-easing-standard);
+}
+
+/* --------------------------------------------------------- indeterminate --
+   Two overlapping bars on offset timings, matching the M3 motion spec.
+   Animating transform (not width) keeps this off the layout thread. */
+
+.m3-linear-progress--indeterminate .m3-linear-progress__indicator {
+  width: 100%;
+  transform-origin: left center;
+  will-change: transform;
+}
+
+.m3-linear-progress--indeterminate
+  .m3-linear-progress__indicator:not(.m3-linear-progress__indicator--secondary) {
+  animation:
+    m3-progress-primary-translate 2s infinite
+      cubic-bezier(0.65, 0.815, 0.735, 0.395),
+    m3-progress-primary-scale 2s infinite cubic-bezier(0.4, 0, 0.6, 1);
+}
+
+.m3-linear-progress--indeterminate .m3-linear-progress__indicator--secondary {
+  animation:
+    m3-progress-secondary-translate 2s infinite
+      cubic-bezier(0.165, 0.84, 0.44, 1),
+    m3-progress-secondary-scale 2s infinite cubic-bezier(0.4, 0, 0.6, 1);
+}
+
+@keyframes m3-progress-primary-translate {
+  0% {
+    translate: -100% 0;
+  }
+  60% {
+    translate: 40% 0;
+  }
+  100% {
+    translate: 100% 0;
+  }
+}
+
+@keyframes m3-progress-primary-scale {
+  0% {
+    scale: 0.08 1;
+  }
+  40% {
+    scale: 0.66 1;
+  }
+  100% {
+    scale: 0.08 1;
+  }
+}
+
+@keyframes m3-progress-secondary-translate {
+  0% {
+    translate: -110% 0;
+  }
+  80% {
+    translate: 105% 0;
+  }
+  100% {
+    translate: 110% 0;
+  }
+}
+
+@keyframes m3-progress-secondary-scale {
+  0% {
+    scale: 0.08 1;
+  }
+  50% {
+    scale: 0.45 1;
+  }
+  100% {
+    scale: 0.1 1;
+  }
+}
+
+/* ----------------------------------------------------------------- value -- */
+
+.m3-linear-progress__value {
+  flex: none;
+  min-width: 4ch;
+  text-align: right;
+  font: var(--md-sys-typescale-label-medium-font);
+  letter-spacing: var(--md-sys-typescale-label-medium-tracking);
+  color: var(--on-surface-variant);
+  font-variant-numeric: tabular-nums;
+}
+
+/* ------------------------------------------------------------------ a11y -- */
+
+@media (prefers-reduced-motion: reduce) {
+  .m3-linear-progress--indeterminate .m3-linear-progress__indicator {
+    animation: none !important;
+    width: 35%;
+    translate: 0 0;
+    scale: 1 1;
+    opacity: 0.85;
+  }
+
+  .m3-linear-progress--indeterminate .m3-linear-progress__indicator--secondary {
+    display: none;
+  }
+}
+
+@media (forced-colors: active) {
+  .m3-linear-progress__indicator {
+    background: Highlight;
+  }
+
+  .m3-linear-progress__track {
+    background: Canvas;
+    border: 1px solid CanvasText;
+  }
+}

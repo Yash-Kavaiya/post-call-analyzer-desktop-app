@@ -1,0 +1,19 @@
+[package]
+name = "ca-store"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+
+[dependencies]
+ca-core.workspace = true
+ca-insights.workspace = true
+ca-metrics.workspace = true
+ca-privacy.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+chrono.workspace = true
+tracing.workspace = true
+# `bundled` compiles SQLite from source via cc, so there is no runtime
+# dependency on a system sqlite3 and the shipped app stays self-contained.
+rusqlite = { version = "0.40", features = ["bundled"] }

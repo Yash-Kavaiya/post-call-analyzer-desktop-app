@@ -1,0 +1,94 @@
+/* Chart shell styles. Colour only ever comes from Material 3 tokens. */
+
+.cac-frame {
+  position: relative;
+  width: 100%;
+  min-width: 0;
+}
+
+.cac-frame--loading,
+.cac-frame--empty,
+.cac-frame--error {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 16px;
+  text-align: center;
+  border: 1px dashed var(--outline);
+  border-radius: var(--md-sys-shape-corner-medium);
+  background: var(--surface-container-low);
+}
+
+.cac-frame--error {
+  border-style: solid;
+  border-color: var(--error);
+  background: var(--surface-container-low);
+}
+
+.cac-frame__title {
+  font: var(--md-sys-typescale-title-small-font);
+  color: var(--on-surface);
+}
+
+.cac-frame--error .cac-frame__title {
+  color: var(--error);
+}
+
+.cac-frame__detail {
+  font: var(--md-sys-typescale-body-small-font);
+  color: var(--on-surface-variant);
+  max-width: 42ch;
+  overflow-wrap: anywhere;
+}
+
+.cac-frame__retry {
+  margin-top: 4px;
+  padding: 6px 16px;
+  border-radius: var(--md-sys-shape-corner-full);
+  border: 1px solid var(--outline);
+  color: var(--md-sys-color-primary);
+  background: transparent;
+  cursor: pointer;
+  font: var(--md-sys-typescale-label-large-font);
+}
+
+.cac-frame__retry:hover {
+  background: var(--surface-container-high);
+}
+
+.cac-frame__retry:focus-visible {
+  outline: 2px solid var(--md-sys-color-primary);
+  outline-offset: 2px;
+}
+
+.cac-skeleton {
+  display: block;
+  width: 100%;
+  height: 100%;
+  border-radius: var(--md-sys-shape-corner-small);
+  background: linear-gradient(
+    90deg,
+    var(--surface-container-low) 0%,
+    var(--surface-container-high) 50%,
+    var(--surface-container-low) 100%
+  );
+  background-size: 200% 100%;
+  animation: cac-shimmer 1.4s ease-in-out infinite;
+}
+
+@keyframes cac-shimmer {
+  from {
+    background-position: 200% 0;
+  }
+  to {
+    background-position: -200% 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .cac-skeleton {
+    animation: none;
+  }
+}

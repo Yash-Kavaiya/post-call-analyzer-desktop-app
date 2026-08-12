@@ -1,0 +1,462 @@
+/* =============================================================================
+   Global stylesheet - reset + app chrome for the Material 3 theme.
+   Import this once (it pulls tokens.css in first):
+
+     import './theme/global.css'
+
+   Everything here reads from tokens.css. No literal colours live in this file.
+   ========================================================================== */
+
+@import './tokens.css';
+
+/* =============================================================================
+   1. RESET
+   ========================================================================== */
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+* {
+  margin: 0;
+}
+
+html {
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+  height: 100%;
+}
+
+body {
+  height: 100%;
+  min-height: 100%;
+  background: var(--surface);
+  color: var(--on-surface);
+  font: var(--md-sys-typescale-body-medium-font);
+  letter-spacing: var(--md-sys-typescale-body-medium-tracking);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+  font-synthesis-weight: none;
+  overflow-wrap: break-word;
+  accent-color: var(--primary);
+  caret-color: var(--primary);
+}
+
+#root {
+  isolation: isolate;
+  min-height: 100%;
+}
+
+img,
+picture,
+video,
+canvas,
+svg {
+  display: block;
+  max-width: 100%;
+}
+
+svg {
+  fill: currentColor;
+}
+
+input,
+button,
+textarea,
+select {
+  font: inherit;
+  letter-spacing: inherit;
+  color: inherit;
+}
+
+button {
+  background: none;
+  border: none;
+  padding: 0;
+}
+
+p,
+h1,
+h2,
+h3,
+h4,
+h5,
+h6 {
+  overflow-wrap: break-word;
+}
+
+ul[role='list'],
+ol[role='list'] {
+  list-style: none;
+  padding: 0;
+}
+
+table {
+  border-collapse: collapse;
+  border-spacing: 0;
+}
+
+hr {
+  border: none;
+  border-top: 1px solid var(--outline-variant);
+  margin: 0;
+}
+
+code,
+kbd,
+samp,
+pre {
+  font-family: var(--font-mono);
+  font-size: 0.9375em;
+}
+
+/* Desktop app chrome: no accidental text selection or native drag on shell UI. */
+body {
+  -webkit-user-select: none;
+  user-select: none;
+  cursor: default;
+}
+
+input,
+textarea,
+[contenteditable],
+[data-selectable],
+.selectable,
+p,
+pre,
+code,
+td,
+li {
+  -webkit-user-select: text;
+  user-select: text;
+}
+
+/* =============================================================================
+   2. TYPOGRAPHY defaults from the M3 type scale
+   ========================================================================== */
+
+h1 {
+  font: var(--md-sys-typescale-headline-large-font);
+  letter-spacing: var(--md-sys-typescale-headline-large-tracking);
+}
+
+h2 {
+  font: var(--md-sys-typescale-headline-medium-font);
+  letter-spacing: var(--md-sys-typescale-headline-medium-tracking);
+}
+
+h3 {
+  font: var(--md-sys-typescale-headline-small-font);
+  letter-spacing: var(--md-sys-typescale-headline-small-tracking);
+}
+
+h4 {
+  font: var(--md-sys-typescale-title-large-font);
+  letter-spacing: var(--md-sys-typescale-title-large-tracking);
+}
+
+h5 {
+  font: var(--md-sys-typescale-title-medium-font);
+  letter-spacing: var(--md-sys-typescale-title-medium-tracking);
+}
+
+h6 {
+  font: var(--md-sys-typescale-title-small-font);
+  letter-spacing: var(--md-sys-typescale-title-small-tracking);
+}
+
+small {
+  font: var(--md-sys-typescale-body-small-font);
+  letter-spacing: var(--md-sys-typescale-body-small-tracking);
+}
+
+a {
+  color: var(--primary);
+  text-decoration-color: color-mix(in srgb, var(--primary) 40%, transparent);
+  text-underline-offset: 2px;
+}
+
+a:hover {
+  text-decoration-color: currentColor;
+}
+
+::selection {
+  background: color-mix(in srgb, var(--primary) 28%, transparent);
+  color: var(--on-surface);
+}
+
+/* Utility classes so screens can apply the type scale without re-deriving it. */
+.md-display-large {
+  font: var(--md-sys-typescale-display-large-font);
+  letter-spacing: var(--md-sys-typescale-display-large-tracking);
+}
+.md-display-medium {
+  font: var(--md-sys-typescale-display-medium-font);
+  letter-spacing: var(--md-sys-typescale-display-medium-tracking);
+}
+.md-display-small {
+  font: var(--md-sys-typescale-display-small-font);
+  letter-spacing: var(--md-sys-typescale-display-small-tracking);
+}
+.md-headline-large {
+  font: var(--md-sys-typescale-headline-large-font);
+  letter-spacing: var(--md-sys-typescale-headline-large-tracking);
+}
+.md-headline-medium {
+  font: var(--md-sys-typescale-headline-medium-font);
+  letter-spacing: var(--md-sys-typescale-headline-medium-tracking);
+}
+.md-headline-small {
+  font: var(--md-sys-typescale-headline-small-font);
+  letter-spacing: var(--md-sys-typescale-headline-small-tracking);
+}
+.md-title-large {
+  font: var(--md-sys-typescale-title-large-font);
+  letter-spacing: var(--md-sys-typescale-title-large-tracking);
+}
+.md-title-medium {
+  font: var(--md-sys-typescale-title-medium-font);
+  letter-spacing: var(--md-sys-typescale-title-medium-tracking);
+}
+.md-title-small {
+  font: var(--md-sys-typescale-title-small-font);
+  letter-spacing: var(--md-sys-typescale-title-small-tracking);
+}
+.md-body-large {
+  font: var(--md-sys-typescale-body-large-font);
+  letter-spacing: var(--md-sys-typescale-body-large-tracking);
+}
+.md-body-medium {
+  font: var(--md-sys-typescale-body-medium-font);
+  letter-spacing: var(--md-sys-typescale-body-medium-tracking);
+}
+.md-body-small {
+  font: var(--md-sys-typescale-body-small-font);
+  letter-spacing: var(--md-sys-typescale-body-small-tracking);
+}
+.md-label-large {
+  font: var(--md-sys-typescale-label-large-font);
+  letter-spacing: var(--md-sys-typescale-label-large-tracking);
+}
+.md-label-medium {
+  font: var(--md-sys-typescale-label-medium-font);
+  letter-spacing: var(--md-sys-typescale-label-medium-tracking);
+}
+.md-label-small {
+  font: var(--md-sys-typescale-label-small-font);
+  letter-spacing: var(--md-sys-typescale-label-small-tracking);
+}
+
+/* =============================================================================
+   3. FOCUS - visible ring in the primary colour, keyboard only
+   ========================================================================== */
+
+:focus {
+  outline: none;
+}
+
+:focus-visible {
+  outline: var(--md-comp-focus-ring-width) solid var(--md-comp-focus-ring-color);
+  outline-offset: var(--md-comp-focus-ring-offset);
+  border-radius: inherit;
+}
+
+/* Text inputs deserve a ring even on mouse focus. */
+input:focus,
+textarea:focus,
+select:focus,
+[contenteditable]:focus {
+  outline: var(--md-comp-focus-ring-width) solid var(--md-comp-focus-ring-color);
+  outline-offset: var(--md-comp-focus-ring-offset);
+}
+
+/* Skip link pattern for keyboard users. */
+.md-skip-link {
+  position: absolute;
+  top: var(--md-sys-spacing-2);
+  left: var(--md-sys-spacing-2);
+  z-index: 999;
+  padding: var(--md-sys-spacing-2) var(--md-sys-spacing-4);
+  border-radius: var(--md-sys-shape-corner-small);
+  background: var(--primary);
+  color: var(--on-primary);
+  font: var(--md-sys-typescale-label-large-font);
+  transform: translateY(-200%);
+  transition: transform var(--md-sys-motion-duration-medium)
+    var(--md-sys-motion-easing-standard);
+}
+
+.md-skip-link:focus-visible {
+  transform: translateY(0);
+}
+
+/* Screen-reader-only text. */
+.md-visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* =============================================================================
+   4. SCROLLBARS - themed, matching the surface palette
+   ========================================================================== */
+
+/* Firefox / standards track. */
+html {
+  scrollbar-color: var(--md-comp-scrollbar-thumb) var(--md-comp-scrollbar-track);
+  scrollbar-width: thin;
+}
+
+::-webkit-scrollbar {
+  width: var(--md-comp-scrollbar-size);
+  height: var(--md-comp-scrollbar-size);
+}
+
+::-webkit-scrollbar-track {
+  background: var(--md-comp-scrollbar-track);
+}
+
+::-webkit-scrollbar-thumb {
+  background-color: var(--md-comp-scrollbar-thumb);
+  border: 3px solid transparent;
+  border-radius: var(--md-sys-shape-corner-full);
+  background-clip: content-box;
+  min-height: 40px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background-color: var(--md-comp-scrollbar-thumb-hover);
+}
+
+::-webkit-scrollbar-thumb:active {
+  background-color: var(--on-surface-variant);
+}
+
+::-webkit-scrollbar-corner {
+  background: transparent;
+}
+
+/* Opt-in: scrollbar that only appears while the region is hovered. */
+.md-scroll-overlay::-webkit-scrollbar-thumb {
+  background-color: transparent;
+}
+
+.md-scroll-overlay:hover::-webkit-scrollbar-thumb {
+  background-color: var(--md-comp-scrollbar-thumb);
+}
+
+/* =============================================================================
+   5. SURFACE HELPERS + ELEVATION UTILITIES
+   ========================================================================== */
+
+.md-surface {
+  background: var(--surface);
+  color: var(--on-surface);
+}
+
+.md-surface-container-low {
+  background: var(--surface-container-low);
+  color: var(--on-surface);
+}
+
+.md-surface-container {
+  background: var(--surface-container);
+  color: var(--on-surface);
+}
+
+.md-surface-container-high {
+  background: var(--surface-container-high);
+  color: var(--on-surface);
+}
+
+.md-elevation-0 {
+  box-shadow: var(--md-sys-elevation-0);
+}
+.md-elevation-1 {
+  box-shadow: var(--md-sys-elevation-1);
+}
+.md-elevation-2 {
+  box-shadow: var(--md-sys-elevation-2);
+}
+.md-elevation-3 {
+  box-shadow: var(--md-sys-elevation-3);
+}
+.md-elevation-4 {
+  box-shadow: var(--md-sys-elevation-4);
+}
+.md-elevation-5 {
+  box-shadow: var(--md-sys-elevation-5);
+}
+
+.md-divider {
+  height: 1px;
+  border: none;
+  background: var(--outline-variant);
+}
+
+/* =============================================================================
+   6. FORM CONTROLS - baseline so native inputs match the theme
+   ========================================================================== */
+
+input[type='text'],
+input[type='search'],
+input[type='number'],
+input[type='email'],
+input[type='password'],
+input[type='url'],
+textarea,
+select {
+  background: var(--surface-container-low);
+  color: var(--on-surface);
+  border: 1px solid var(--outline);
+  border-radius: var(--md-sys-shape-corner-small);
+  padding: 10px var(--md-sys-spacing-3);
+  transition:
+    border-color var(--md-sys-motion-duration-short)
+      var(--md-sys-motion-easing-standard),
+    background-color var(--md-sys-motion-duration-short)
+      var(--md-sys-motion-easing-standard);
+}
+
+input::placeholder,
+textarea::placeholder {
+  color: var(--on-surface-variant);
+  opacity: 0.7;
+}
+
+input:disabled,
+textarea:disabled,
+select:disabled {
+  opacity: var(--md-sys-state-disabled-content-opacity);
+  cursor: not-allowed;
+}
+
+/* =============================================================================
+   7. MOTION PREFERENCES
+   ========================================================================== */
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+@media (forced-colors: active) {
+  :focus-visible {
+    outline-color: Highlight;
+  }
+}

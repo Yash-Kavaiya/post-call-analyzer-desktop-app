@@ -1,0 +1,162 @@
+/*
+ * Call copilot.
+ *
+ * A thread, not a chat app: questions are short, answers are short, and the
+ * citations under each answer are the point. Buttons are addressed through
+ * their containers so neighbouring screens cannot restyle them.
+ */
+
+.cp-root {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.cp-suggestions {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+}
+
+.cp-suggestions > li > button {
+  padding: 7px 13px;
+  border: 1px solid var(--outline);
+  border-radius: 999px;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  font-size: 12.5px;
+  text-align: left;
+  cursor: pointer;
+}
+
+.cp-suggestions > li > button:hover:not(:disabled) {
+  background: var(--surface-container-high);
+}
+
+.cp-suggestions > li > button:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.cp-thread {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.cp-q {
+  margin: 0 0 6px;
+  font-size: 13.5px;
+  font-weight: 600;
+}
+
+.cp-a {
+  padding: 12px 14px;
+  border-radius: var(--md-sys-shape-corner-medium, 12px);
+  background: var(--surface-container-high);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.cp-a p {
+  margin: 0;
+  font-size: 13.5px;
+  line-height: 1.6;
+}
+
+.cp-cites {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.cp-cites > li > button {
+  padding: 2px 9px;
+  border: 1px solid var(--outline);
+  border-radius: 999px;
+  background: var(--surface);
+  color: var(--md-sys-color-primary);
+  font: inherit;
+  font-size: 11.5px;
+  font-variant-numeric: tabular-nums;
+  cursor: pointer;
+}
+
+.cp-cites > li > button:hover {
+  background: var(--surface-container-low);
+}
+
+.cp-cites > li > button:focus-visible {
+  outline: 2px solid var(--md-sys-color-primary);
+  outline-offset: 1px;
+}
+
+/* Deliberately plain rather than alarming: the answer is not necessarily
+   wrong, it is merely unchecked, and colouring it like an error would train
+   people to ignore real errors. */
+.cp-ungrounded {
+  margin: 0;
+  font-size: 12px !important;
+  color: var(--on-surface-variant);
+  font-style: italic;
+}
+
+.cp-form {
+  display: flex;
+  gap: 9px;
+}
+
+.cp-form input {
+  flex: 1;
+  min-width: 0;
+  padding: 9px 12px;
+  border: 1px solid var(--outline);
+  border-radius: 999px;
+  background: var(--surface);
+  color: var(--on-surface);
+  font: inherit;
+  font-size: 13.5px;
+}
+
+.cp-form input:focus-visible {
+  outline: 2px solid var(--md-sys-color-primary);
+  outline-offset: 1px;
+}
+
+.cp-form > button {
+  padding: 9px 19px;
+  border: 0;
+  border-radius: 999px;
+  background: var(--md-sys-color-primary);
+  color: var(--on-primary, #fff);
+  font: inherit;
+  cursor: pointer;
+}
+
+.cp-form > button:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+
+.cp-busy,
+.cp-error {
+  margin: 0;
+  font-size: 12.5px;
+  color: var(--on-surface-variant);
+}
+
+.cp-error {
+  color: var(--error, #B3261E);
+  word-break: break-word;
+}

@@ -1,0 +1,27 @@
+[package]
+name = "ca-pipeline"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+
+[dependencies]
+ca-core.workspace = true
+ca-audio.workspace = true
+ca-asr.workspace = true
+ca-diarize.workspace = true
+ca-privacy.workspace = true
+ca-store.workspace = true
+ca-ingest.workspace = true
+reqwest.workspace = true
+ca-llm.workspace = true
+ca-agents.workspace = true
+chrono.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+tracing.workspace = true
+async-trait.workspace = true
+tokio = { workspace = true, features = ["rt-multi-thread", "macros", "sync", "process"] }
+
+[dev-dependencies]
+tokio = { workspace = true, features = ["rt-multi-thread", "macros"] }

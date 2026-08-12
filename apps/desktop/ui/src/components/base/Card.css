@@ -1,0 +1,192 @@
+/* Material 3 Card - elevated / filled / outlined, elevation 0-5 */
+
+.m3-card {
+  position: relative;
+  display: block;
+  border-radius: var(--md-sys-shape-corner-large);
+  background: var(--surface-container-low);
+  color: var(--on-surface);
+  isolation: isolate;
+  transition:
+    box-shadow var(--md-sys-motion-duration-medium)
+      var(--md-sys-motion-easing-standard),
+    background-color var(--md-sys-motion-duration-short)
+      var(--md-sys-motion-easing-standard),
+    border-color var(--md-sys-motion-duration-short)
+      var(--md-sys-motion-easing-standard);
+}
+
+/* ------------------------------------------------------------- elevation -- */
+
+.m3-card--elevation-0 {
+  box-shadow: var(--md-sys-elevation-0);
+}
+.m3-card--elevation-1 {
+  box-shadow: var(--md-sys-elevation-1);
+}
+.m3-card--elevation-2 {
+  box-shadow: var(--md-sys-elevation-2);
+}
+.m3-card--elevation-3 {
+  box-shadow: var(--md-sys-elevation-3);
+}
+.m3-card--elevation-4 {
+  box-shadow: var(--md-sys-elevation-4);
+}
+.m3-card--elevation-5 {
+  box-shadow: var(--md-sys-elevation-5);
+}
+
+/* Higher levels sit on progressively brighter containers, which is how M3
+   keeps depth legible in dark mode where shadows alone are weak. */
+.m3-card--elevation-2 {
+  background: var(--surface-container);
+}
+.m3-card--elevation-3,
+.m3-card--elevation-4 {
+  background: var(--surface-container-high);
+}
+.m3-card--elevation-5 {
+  background: var(--surface-container-highest);
+}
+
+/* -------------------------------------------------------------- variants -- */
+
+.m3-card--filled {
+  background: var(--surface-container-highest);
+  box-shadow: var(--md-sys-elevation-0);
+}
+
+.m3-card--outlined {
+  background: var(--surface);
+  border: 1px solid var(--outline-variant);
+  box-shadow: var(--md-sys-elevation-0);
+}
+
+/* An explicit non-zero elevation still wins on an outlined card. */
+.m3-card--outlined.m3-card--elevation-1 {
+  box-shadow: var(--md-sys-elevation-1);
+}
+.m3-card--outlined.m3-card--elevation-2 {
+  box-shadow: var(--md-sys-elevation-2);
+}
+.m3-card--outlined.m3-card--elevation-3 {
+  box-shadow: var(--md-sys-elevation-3);
+}
+.m3-card--outlined.m3-card--elevation-4 {
+  box-shadow: var(--md-sys-elevation-4);
+}
+.m3-card--outlined.m3-card--elevation-5 {
+  box-shadow: var(--md-sys-elevation-5);
+}
+
+/* --------------------------------------------------------------- padding -- */
+
+.m3-card--padding-none {
+  padding: 0;
+}
+.m3-card--padding-compact {
+  padding: var(--md-sys-spacing-3);
+}
+.m3-card--padding-comfortable {
+  padding: var(--md-sys-spacing-4);
+}
+.m3-card--padding-spacious {
+  padding: var(--md-sys-spacing-6);
+}
+
+/* ----------------------------------------------------------- interactive -- */
+
+.m3-card--interactive {
+  cursor: pointer;
+  overflow: hidden;
+}
+
+.m3-card__state-layer {
+  position: absolute;
+  inset: 0;
+  background: var(--on-surface);
+  opacity: 0;
+  pointer-events: none;
+  z-index: -1;
+  transition: opacity var(--md-sys-motion-duration-short)
+    var(--md-sys-motion-easing-standard);
+}
+
+.m3-card--interactive:hover .m3-card__state-layer {
+  opacity: var(--md-sys-state-hover-opacity);
+}
+
+.m3-card--interactive:focus-visible .m3-card__state-layer {
+  opacity: var(--md-sys-state-focus-opacity);
+}
+
+.m3-card--interactive:active .m3-card__state-layer {
+  opacity: var(--md-sys-state-pressed-opacity);
+}
+
+.m3-card--raise:hover {
+  box-shadow: var(--md-sys-elevation-3);
+}
+
+.m3-card--raise.m3-card--elevation-4:hover,
+.m3-card--raise.m3-card--elevation-5:hover {
+  box-shadow: var(--md-sys-elevation-5);
+}
+
+.m3-card--interactive:focus-visible {
+  outline: var(--md-comp-focus-ring-width) solid var(--md-comp-focus-ring-color);
+  outline-offset: var(--md-comp-focus-ring-offset);
+}
+
+/* ---------------------------------------------------------------- header -- */
+
+.m3-card__header {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--md-sys-spacing-3);
+}
+
+.m3-card__header:not(:last-child) {
+  margin-bottom: var(--md-sys-spacing-3);
+}
+
+.m3-card__leading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  color: var(--on-surface-variant);
+}
+
+.m3-card__headings {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.m3-card__title {
+  font: var(--md-sys-typescale-title-medium-font);
+  letter-spacing: var(--md-sys-typescale-title-medium-tracking);
+  color: var(--on-surface);
+}
+
+.m3-card__subtitle {
+  margin-top: 2px;
+  font: var(--md-sys-typescale-body-small-font);
+  letter-spacing: var(--md-sys-typescale-body-small-tracking);
+  color: var(--on-surface-variant);
+}
+
+.m3-card__actions {
+  display: flex;
+  align-items: center;
+  gap: var(--md-sys-spacing-1);
+  flex: none;
+  margin-left: auto;
+}
+
+@media (forced-colors: active) {
+  .m3-card {
+    border: 1px solid CanvasText;
+  }
+}

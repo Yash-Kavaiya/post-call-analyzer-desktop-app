@@ -1,0 +1,258 @@
+/* Material 3 Chip - assist / filter (selectable) / input, with status dot */
+
+.m3-chip {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--md-sys-spacing-2);
+  min-height: 32px;
+  padding: 0 var(--md-sys-spacing-3);
+  border: 1px solid var(--outline-variant);
+  border-radius: var(--md-sys-shape-corner-small);
+  background: transparent;
+  color: var(--on-surface-variant);
+  font: var(--md-sys-typescale-label-large-font);
+  letter-spacing: var(--md-sys-typescale-label-large-tracking);
+  white-space: nowrap;
+  cursor: pointer;
+  isolation: isolate;
+  overflow: hidden;
+  user-select: none;
+  -webkit-user-select: none;
+  vertical-align: middle;
+  transition:
+    background-color var(--md-sys-motion-duration-short)
+      var(--md-sys-motion-easing-standard),
+    border-color var(--md-sys-motion-duration-short)
+      var(--md-sys-motion-easing-standard),
+    color var(--md-sys-motion-duration-short)
+      var(--md-sys-motion-easing-standard),
+    box-shadow var(--md-sys-motion-duration-medium)
+      var(--md-sys-motion-easing-standard);
+}
+
+.m3-chip--dense {
+  min-height: 26px;
+  padding: 0 var(--md-sys-spacing-2);
+  font: var(--md-sys-typescale-label-medium-font);
+  letter-spacing: var(--md-sys-typescale-label-medium-tracking);
+  gap: var(--md-sys-spacing-1);
+}
+
+/* ----------------------------------------------------------- state layer -- */
+
+.m3-chip__state-layer {
+  position: absolute;
+  inset: 0;
+  background: currentColor;
+  opacity: 0;
+  pointer-events: none;
+  z-index: -1;
+  transition: opacity var(--md-sys-motion-duration-short)
+    var(--md-sys-motion-easing-standard);
+}
+
+.m3-chip:hover:not(.m3-chip--disabled) .m3-chip__state-layer {
+  opacity: var(--md-sys-state-hover-opacity);
+}
+
+.m3-chip:focus-visible .m3-chip__state-layer,
+.m3-chip__pressable:focus-visible .m3-chip__state-layer {
+  opacity: var(--md-sys-state-focus-opacity);
+}
+
+.m3-chip:active:not(.m3-chip--disabled) .m3-chip__state-layer {
+  opacity: var(--md-sys-state-pressed-opacity);
+}
+
+/* ---------------------------------------------------------------- parts -- */
+
+.m3-chip__label {
+  display: inline-block;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.m3-chip__icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  width: 18px;
+  height: 18px;
+}
+
+.m3-chip__icon > svg,
+.m3-chip__icon > img {
+  width: 100%;
+  height: 100%;
+}
+
+.m3-chip__check {
+  width: 18px;
+  height: 18px;
+  flex: none;
+  fill: currentColor;
+}
+
+/* Status dot - colour supplied per-instance via --m3-chip-dot. */
+.m3-chip__dot {
+  flex: none;
+  width: 8px;
+  height: 8px;
+  border-radius: var(--md-sys-shape-corner-full);
+  background: var(--m3-chip-dot, var(--outline));
+  box-shadow: 0 0 0 3px
+    color-mix(in srgb, var(--m3-chip-dot, var(--outline)) 20%, transparent);
+  margin-left: 2px;
+  margin-right: 2px;
+}
+
+.m3-chip--dense .m3-chip__dot {
+  width: 6px;
+  height: 6px;
+  box-shadow: none;
+}
+
+/* -------------------------------------------------------------- variants -- */
+
+/* Assist - low emphasis action */
+.m3-chip--assist {
+  background: transparent;
+}
+
+.m3-chip--assist:hover:not(.m3-chip--disabled) {
+  box-shadow: var(--md-sys-elevation-1);
+}
+
+/* Filter - selectable */
+.m3-chip--filter {
+  background: transparent;
+}
+
+.m3-chip--filter.m3-chip--selected {
+  background: var(--secondary-container);
+  color: var(--on-secondary-container);
+  border-color: transparent;
+}
+
+.m3-chip--filter.m3-chip--selected:hover:not(.m3-chip--disabled) {
+  box-shadow: var(--md-sys-elevation-1);
+}
+
+/* Input - represents a value, usually removable */
+.m3-chip--input {
+  background: var(--surface-container);
+  color: var(--on-surface);
+  border-color: transparent;
+  padding-right: var(--md-sys-spacing-1);
+  cursor: default;
+}
+
+.m3-chip--input:has(.m3-chip__pressable) {
+  cursor: pointer;
+}
+
+/* An input chip wraps its own pressable / static content region. */
+.m3-chip__pressable,
+.m3-chip__static {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: inherit;
+  min-width: 0;
+  border: none;
+  background: none;
+  padding: 0;
+  margin: 0;
+  color: inherit;
+  font: inherit;
+  letter-spacing: inherit;
+  isolation: isolate;
+  border-radius: inherit;
+}
+
+.m3-chip__pressable {
+  cursor: pointer;
+}
+
+.m3-chip__static {
+  cursor: inherit;
+}
+
+.m3-chip__remove {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  width: 20px;
+  height: 20px;
+  margin-left: 2px;
+  border-radius: var(--md-sys-shape-corner-full);
+  color: var(--on-surface-variant);
+  cursor: pointer;
+  transition: background-color var(--md-sys-motion-duration-short)
+    var(--md-sys-motion-easing-standard);
+}
+
+.m3-chip__remove > svg {
+  width: 14px;
+  height: 14px;
+  fill: currentColor;
+}
+
+.m3-chip__remove:hover:not(:disabled) {
+  background: color-mix(in srgb, currentColor 12%, transparent);
+  color: var(--on-surface);
+}
+
+.m3-chip__remove:disabled {
+  cursor: not-allowed;
+  opacity: var(--md-sys-state-disabled-content-opacity);
+}
+
+/* -------------------------------------------------------------- disabled -- */
+
+.m3-chip--disabled {
+  cursor: not-allowed;
+  pointer-events: none;
+  color: color-mix(in srgb, var(--on-surface) 38%, transparent);
+  border-color: color-mix(in srgb, var(--on-surface) 12%, transparent);
+  box-shadow: none;
+}
+
+.m3-chip--disabled.m3-chip--selected,
+.m3-chip--disabled.m3-chip--input {
+  background: color-mix(in srgb, var(--on-surface) 12%, transparent);
+  border-color: transparent;
+}
+
+/* ------------------------------------------------------------------ a11y -- */
+
+.m3-chip:focus-visible,
+.m3-chip__pressable:focus-visible,
+.m3-chip__remove:focus-visible {
+  outline: var(--md-comp-focus-ring-width) solid var(--md-comp-focus-ring-color);
+  outline-offset: var(--md-comp-focus-ring-offset);
+}
+
+/* The chip clips its state layer, so pull the ring inside to keep it visible. */
+.m3-chip:focus-visible {
+  outline-offset: -2px;
+}
+
+@media (forced-colors: active) {
+  .m3-chip {
+    border: 1px solid ButtonText;
+  }
+
+  .m3-chip--selected {
+    border-width: 2px;
+  }
+
+  .m3-chip--disabled {
+    color: GrayText;
+    border-color: GrayText;
+  }
+}

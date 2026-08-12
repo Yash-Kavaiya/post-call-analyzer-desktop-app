@@ -1,0 +1,32 @@
+.calls-header { display: flex; align-items: center; gap: 16px; margin-bottom: 18px; }
+.calls-header h2 { margin: 0; font-size: 26px; font-weight: 500; }
+.calls-search { flex: 1; max-width: 340px; padding: 9px 14px;
+  border: 1px solid var(--outline); border-radius: 999px;
+  background: var(--surface-container-low); color: var(--on-surface); font: inherit; }
+.calls-search:focus-visible { outline: 2px solid var(--md-sys-color-primary); outline-offset: 1px; }
+
+.calls-table { width: 100%; border-collapse: collapse;
+  background: var(--surface-container-low); border: 1px solid var(--outline);
+  border-radius: var(--md-sys-shape-corner-medium, 12px); overflow: hidden; }
+.calls-table th { text-align: left; padding: 11px 14px; font-size: 12px; font-weight: 500;
+  text-transform: uppercase; letter-spacing: .04em; color: var(--on-surface-variant);
+  border-bottom: 1px solid var(--outline); }
+.calls-table td { padding: 11px 14px; border-bottom: 1px solid var(--outline); font-size: 14px; }
+.calls-table tbody tr { cursor: pointer; }
+.calls-table tbody tr:hover { background: var(--surface-container-high); }
+.calls-table tbody tr:focus-visible { outline: 2px solid var(--md-sys-color-primary); outline-offset: -2px; }
+.calls-name { max-width: 420px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+.calls-stage { padding: 3px 9px; border-radius: 999px; font-size: 12px;
+  background: var(--surface-container-high); color: var(--on-surface-variant); }
+.calls-ok { background: rgba(30,142,62,.16); color: var(--success, #1E8E3E); }
+.calls-bad { background: rgba(179,38,30,.16); color: var(--error, #B3261E); }
+.calls-busy { background: rgba(26,115,232,.16); color: var(--md-sys-color-primary); }
+
+.calls-pager { display: flex; align-items: center; gap: 14px; margin-top: 16px;
+  color: var(--on-surface-variant); font-size: 13px; }
+.calls-pager button { padding: 7px 15px; border: 1px solid var(--outline);
+  border-radius: 999px; background: transparent; color: inherit; font: inherit; cursor: pointer; }
+.calls-pager button:disabled { opacity: .4; cursor: default; }
+.calls-state { color: var(--on-surface-variant); padding: 20px 0; }
+.calls-error { color: var(--error, #B3261E); }

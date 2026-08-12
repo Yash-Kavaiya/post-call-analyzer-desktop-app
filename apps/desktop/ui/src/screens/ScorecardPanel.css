@@ -1,0 +1,44 @@
+.sc-overall { display: flex; align-items: center; gap: 16px; margin-bottom: 16px; }
+.sc-ring { display: flex; flex-direction: column; align-items: center; justify-content: center;
+  width: 84px; height: 84px; border-radius: 50%; border: 6px solid var(--md-sys-color-primary);
+  flex-shrink: 0; }
+.sc-ring.sc-good { border-color: var(--success, #1E8E3E); }
+.sc-ring.sc-fair { border-color: var(--warning, #E37400); }
+.sc-ring.sc-poor { border-color: var(--error, #B3261E); }
+.sc-ring-value { font-size: 25px; font-weight: 500; line-height: 1; }
+.sc-ring-unit { font-size: 11px; color: var(--on-surface-variant); }
+.sc-overall-meta { display: flex; flex-direction: column; gap: 4px; font-size: 12px;
+  color: var(--on-surface-variant); }
+.sc-summary { font-size: 13px; line-height: 1.55; margin: 0 0 16px; }
+
+.sc-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 14px; }
+.sc-criterion { padding-bottom: 13px; border-bottom: 1px solid var(--outline); }
+.sc-criterion:last-child { border-bottom: 0; }
+/* Excluded criteria must not read as a failing score. */
+.sc-criterion.sc-na { opacity: .62; }
+.sc-crit-head { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; }
+.sc-crit-label { font-size: 14px; font-weight: 500; }
+.sc-crit-score { font-variant-numeric: tabular-nums; font-size: 14px; }
+.sc-crit-na { font-size: 11px; font-style: italic; color: var(--on-surface-variant); }
+.sc-good { color: var(--success, #1E8E3E); }
+.sc-fair { color: var(--warning, #E37400); }
+.sc-poor { color: var(--error, #B3261E); }
+
+.sc-bar { height: 6px; margin: 7px 0; border-radius: 999px;
+  background: var(--surface-container-high); overflow: hidden; }
+.sc-bar-fill { height: 100%; border-radius: 999px; background: var(--md-sys-color-primary); }
+.sc-bar-fill.sc-good { background: var(--success, #1E8E3E); }
+.sc-bar-fill.sc-fair { background: var(--warning, #E37400); }
+.sc-bar-fill.sc-poor { background: var(--error, #B3261E); }
+
+.sc-reasoning { font-size: 13px; line-height: 1.5; margin: 5px 0 8px;
+  color: var(--on-surface-variant); }
+.sc-citations { display: flex; flex-wrap: wrap; gap: 6px; }
+.sc-citation { padding: 3px 10px; border: 1px solid var(--outline); border-radius: 999px;
+  background: transparent; color: var(--md-sys-color-primary); font: inherit; font-size: 12px;
+  cursor: pointer; font-variant-numeric: tabular-nums; }
+.sc-citation:hover { background: var(--surface-container-high); }
+.sc-weight { font-size: 11px; color: var(--on-surface-variant); }
+.sc-empty { padding: 22px 8px; color: var(--on-surface-variant); }
+.sc-empty h3 { margin: 0 0 8px; font-size: 15px; font-weight: 500; color: var(--on-surface); }
+.sc-empty p { font-size: 13px; line-height: 1.55; margin: 0; }

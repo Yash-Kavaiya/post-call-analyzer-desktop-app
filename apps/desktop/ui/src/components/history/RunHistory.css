@@ -1,0 +1,206 @@
+/*
+ * Run history.
+ *
+ * A long list that is scanned, not read: the eye goes to failures first, so
+ * status carries colour and everything else stays quiet. All colours come from
+ * the theme tokens, so both themes follow without a second rule set.
+ */
+
+.rh-root {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.rh-runs,
+.rh-items ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.rh-run {
+  border-bottom: 1px solid var(--outline-variant, var(--outline));
+}
+
+.rh-run:last-child {
+  border-bottom: 0;
+}
+
+.rh-run-head {
+  display: grid;
+  grid-template-columns: 16px minmax(0, 1fr) auto auto auto 4.5rem;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  padding: 11px 6px;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  border-radius: var(--md-sys-shape-corner-small, 8px);
+}
+
+.rh-run-head:hover {
+  background: var(--surface-container-high);
+}
+
+.rh-run-head:focus-visible {
+  outline: 2px solid var(--md-sys-color-primary);
+  outline-offset: -2px;
+}
+
+.rh-caret {
+  color: var(--on-surface-variant);
+  font-size: 11px;
+}
+
+.rh-run-label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-weight: 500;
+}
+
+.rh-run-when,
+.rh-run-counts,
+.rh-run-took {
+  font-size: 13px;
+  color: var(--on-surface-variant);
+  white-space: nowrap;
+}
+
+.rh-run-took {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Failures are the reason anyone opens this list. */
+.rh-run-failed {
+  color: var(--error, #B3261E);
+  font-style: normal;
+}
+
+/* ------------------------------------------------------------------- chips */
+
+.rh-chip {
+  font-size: 10.5px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: var(--surface-container-high);
+  color: var(--on-surface-variant);
+  white-space: nowrap;
+}
+
+.rh-chip-done {
+  color: var(--md-sys-color-primary);
+}
+
+.rh-chip-failed {
+  color: var(--error, #B3261E);
+}
+
+/* Interrupted is not a failure and not a success — the process went away.
+   Distinct from both, so a killed batch is not mistaken for a broken one. */
+.rh-chip-interrupted {
+  color: var(--on-surface-variant);
+  border: 1px dashed var(--outline);
+  padding: 1px 7px;
+}
+
+.rh-chip-running,
+.rh-chip-queued {
+  color: var(--md-sys-color-primary);
+}
+
+/* ------------------------------------------------------------------- items */
+
+.rh-items {
+  padding: 4px 0 14px 28px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.rh-item {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 6.5rem auto 3.5rem;
+  align-items: center;
+  gap: 12px;
+  padding: 7px 10px;
+  border-radius: var(--md-sys-shape-corner-small, 8px);
+  font-size: 13.5px;
+}
+
+.rh-item:nth-child(odd) {
+  background: var(--surface-container-high);
+}
+
+.rh-item-failed {
+  background: var(--error-container, #F9DEDC);
+}
+
+.rh-item-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.rh-item-stage,
+.rh-item-secs {
+  color: var(--on-surface-variant);
+  font-size: 12.5px;
+}
+
+.rh-item-secs {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+/* The message spans the full width on its own line: an error truncated to a
+   column is an error nobody can act on. */
+.rh-item-error {
+  grid-column: 1 / -1;
+  color: var(--error, #B3261E);
+  font-size: 12.5px;
+  word-break: break-word;
+}
+
+/* -------------------------------------------------------------------- misc */
+
+.rh-more {
+  align-self: flex-start;
+  padding: 7px 14px;
+  border: 1px solid var(--outline);
+  border-radius: 999px;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.rh-more:hover:not(:disabled) {
+  background: var(--surface-container-high);
+}
+
+.rh-more:disabled {
+  opacity: 0.55;
+  cursor: default;
+}
+
+.rh-empty,
+.rh-error {
+  margin: 0;
+  padding: 14px 6px;
+  font-size: 13.5px;
+  color: var(--on-surface-variant);
+}
+
+.rh-error {
+  color: var(--error, #B3261E);
+}

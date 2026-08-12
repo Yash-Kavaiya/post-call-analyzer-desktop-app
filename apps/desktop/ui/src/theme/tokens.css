@@ -1,0 +1,603 @@
+/* =============================================================================
+   Material 3 Design Tokens - Call Analyzer (Tauri / Windows desktop)
+   -----------------------------------------------------------------------------
+   Anchors:  primary #1A73E8 (Google Blue) - dark surface #1F1F1F
+             light surface #F8F9FA - corner radii 12-16px - elevation 0-5
+
+   RULES OBEYED HERE
+   - Every colour gets its FULL definition on bare :root (the light palette).
+   - Dark mode redefines ONLY the tokens that change, in BOTH
+       @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) }
+       :root[data-theme="dark"]
+     so an explicit toggle wins in both directions and the OS default works.
+   - No colour is ever defined *only* inside a media query.
+   - No @import, no remote fonts, no CDN. System font stack only.
+
+   NAMING
+   Canonical M3 names (--md-sys-color-*, --md-sys-shape-*,
+   --md-sys-elevation-*, --md-sys-typescale-*) plus short aliases
+   (--primary, --on-surface, --outline, ...) that point at them.
+   Use whichever reads better; they are always the same value.
+   ========================================================================== */
+
+:root {
+  color-scheme: light;
+
+  /* ---------------------------------------------------------------------
+     TYPEFACES - system stack, Segoe UI first (Windows)
+     ------------------------------------------------------------------ */
+  --md-sys-typeface-plain:
+    "Segoe UI Variable Text", "Segoe UI", system-ui, -apple-system,
+    "Roboto", "Helvetica Neue", Arial, "Noto Sans", sans-serif,
+    "Apple Color Emoji", "Segoe UI Emoji";
+  --md-sys-typeface-brand:
+    "Segoe UI Variable Display", "Segoe UI", system-ui, -apple-system,
+    "Roboto", "Helvetica Neue", Arial, sans-serif;
+  --md-sys-typeface-mono:
+    "Cascadia Code", "Cascadia Mono", ui-monospace, "SFMono-Regular",
+    Consolas, "Liberation Mono", Menlo, monospace;
+
+  --font-sans: var(--md-sys-typeface-plain);
+  --font-brand: var(--md-sys-typeface-brand);
+  --font-mono: var(--md-sys-typeface-mono);
+
+  /* =====================================================================
+     COLOR - LIGHT SCHEME (complete palette, bare :root)
+     ================================================================== */
+
+  /* --- Primary (Google Blue) ---------------------------------------- */
+  --md-sys-color-primary: #1a73e8;
+  --md-sys-color-on-primary: #ffffff;
+  --md-sys-color-primary-container: #d3e3fd;
+  --md-sys-color-on-primary-container: #041e49;
+  --md-sys-color-primary-fixed: #d3e3fd;
+  --md-sys-color-primary-fixed-dim: #a8c7fa;
+  --md-sys-color-on-primary-fixed: #041e49;
+  --md-sys-color-on-primary-fixed-variant: #0842a0;
+  --md-sys-color-inverse-primary: #a8c7fa;
+
+  /* --- Secondary ----------------------------------------------------- */
+  --md-sys-color-secondary: #565e71;
+  --md-sys-color-on-secondary: #ffffff;
+  --md-sys-color-secondary-container: #dae2f9;
+  --md-sys-color-on-secondary-container: #131c2b;
+
+  /* --- Tertiary ------------------------------------------------------ */
+  --md-sys-color-tertiary: #705575;
+  --md-sys-color-on-tertiary: #ffffff;
+  --md-sys-color-tertiary-container: #fad8fd;
+  --md-sys-color-on-tertiary-container: #28132e;
+
+  /* --- Surfaces (anchor: #F8F9FA) ------------------------------------ */
+  --md-sys-color-background: #f8f9fa;
+  --md-sys-color-on-background: #1f1f1f;
+  --md-sys-color-surface: #f8f9fa;
+  --md-sys-color-on-surface: #1f1f1f;
+  --md-sys-color-surface-variant: #e1e3e1;
+  --md-sys-color-on-surface-variant: #444746;
+  --md-sys-color-surface-dim: #dcdfe3;
+  --md-sys-color-surface-bright: #ffffff;
+  --md-sys-color-surface-container-lowest: #ffffff;
+  --md-sys-color-surface-container-low: #fcfcfd;
+  --md-sys-color-surface-container: #f1f3f4;
+  --md-sys-color-surface-container-high: #eceef0;
+  --md-sys-color-surface-container-highest: #e5e8ea;
+  --md-sys-color-surface-tint: #1a73e8;
+
+  /* --- Outlines, inverse, scrim -------------------------------------- */
+  --md-sys-color-outline: #747775;
+  --md-sys-color-outline-variant: #c4c7c5;
+  --md-sys-color-inverse-surface: #303030;
+  --md-sys-color-inverse-on-surface: #f2f2f2;
+  --md-sys-color-scrim: #000000;
+  --md-sys-color-shadow: #000000;
+
+  /* --- Semantic: error ----------------------------------------------- */
+  --md-sys-color-error: #b3261e;
+  --md-sys-color-on-error: #ffffff;
+  --md-sys-color-error-container: #f9dedc;
+  --md-sys-color-on-error-container: #410e0b;
+
+  /* --- Semantic: success (Google Green) ------------------------------ */
+  --md-sys-color-success: #146c2e;
+  --md-sys-color-on-success: #ffffff;
+  --md-sys-color-success-container: #c4eed0;
+  --md-sys-color-on-success-container: #072711;
+
+  /* --- Semantic: warning (Google Amber) ------------------------------ */
+  --md-sys-color-warning: #8f5000;
+  --md-sys-color-on-warning: #ffffff;
+  --md-sys-color-warning-container: #ffddb3;
+  --md-sys-color-on-warning-container: #2e1500;
+
+  /* --- Semantic: info ------------------------------------------------ */
+  --md-sys-color-info: #1a73e8;
+  --md-sys-color-on-info: #ffffff;
+  --md-sys-color-info-container: #d3e3fd;
+  --md-sys-color-on-info-container: #041e49;
+
+  /* --- Short aliases (identical values, friendlier to type) ---------- */
+  --primary: var(--md-sys-color-primary);
+  --on-primary: var(--md-sys-color-on-primary);
+  --primary-container: var(--md-sys-color-primary-container);
+  --on-primary-container: var(--md-sys-color-on-primary-container);
+  --inverse-primary: var(--md-sys-color-inverse-primary);
+
+  --secondary: var(--md-sys-color-secondary);
+  --on-secondary: var(--md-sys-color-on-secondary);
+  --secondary-container: var(--md-sys-color-secondary-container);
+  --on-secondary-container: var(--md-sys-color-on-secondary-container);
+
+  --tertiary: var(--md-sys-color-tertiary);
+  --on-tertiary: var(--md-sys-color-on-tertiary);
+  --tertiary-container: var(--md-sys-color-tertiary-container);
+  --on-tertiary-container: var(--md-sys-color-on-tertiary-container);
+
+  --background: var(--md-sys-color-background);
+  --on-background: var(--md-sys-color-on-background);
+  --surface: var(--md-sys-color-surface);
+  --on-surface: var(--md-sys-color-on-surface);
+  --surface-variant: var(--md-sys-color-surface-variant);
+  --on-surface-variant: var(--md-sys-color-on-surface-variant);
+  --surface-dim: var(--md-sys-color-surface-dim);
+  --surface-bright: var(--md-sys-color-surface-bright);
+  --surface-container-lowest: var(--md-sys-color-surface-container-lowest);
+  --surface-container-low: var(--md-sys-color-surface-container-low);
+  --surface-container: var(--md-sys-color-surface-container);
+  --surface-container-high: var(--md-sys-color-surface-container-high);
+  --surface-container-highest: var(--md-sys-color-surface-container-highest);
+  --surface-tint: var(--md-sys-color-surface-tint);
+
+  --outline: var(--md-sys-color-outline);
+  --outline-variant: var(--md-sys-color-outline-variant);
+  --inverse-surface: var(--md-sys-color-inverse-surface);
+  --inverse-on-surface: var(--md-sys-color-inverse-on-surface);
+  --scrim: var(--md-sys-color-scrim);
+  --shadow: var(--md-sys-color-shadow);
+
+  --error: var(--md-sys-color-error);
+  --on-error: var(--md-sys-color-on-error);
+  --error-container: var(--md-sys-color-error-container);
+  --on-error-container: var(--md-sys-color-on-error-container);
+
+  --success: var(--md-sys-color-success);
+  --on-success: var(--md-sys-color-on-success);
+  --success-container: var(--md-sys-color-success-container);
+  --on-success-container: var(--md-sys-color-on-success-container);
+
+  --warning: var(--md-sys-color-warning);
+  --on-warning: var(--md-sys-color-on-warning);
+  --warning-container: var(--md-sys-color-warning-container);
+  --on-warning-container: var(--md-sys-color-on-warning-container);
+
+  --info: var(--md-sys-color-info);
+  --on-info: var(--md-sys-color-on-info);
+  --info-container: var(--md-sys-color-info-container);
+  --on-info-container: var(--md-sys-color-on-info-container);
+
+  /* =====================================================================
+     SHAPE - corner radii (12-16px core scale)
+     ================================================================== */
+  --md-sys-shape-corner-none: 0px;
+  --md-sys-shape-corner-extra-small: 8px;
+  --md-sys-shape-corner-small: 12px;
+  --md-sys-shape-corner-medium: 14px;
+  --md-sys-shape-corner-large: 16px;
+  --md-sys-shape-corner-extra-large: 28px;
+  --md-sys-shape-corner-full: 999px;
+
+  --radius-sm: var(--md-sys-shape-corner-small);
+  --radius-md: var(--md-sys-shape-corner-medium);
+  --radius-lg: var(--md-sys-shape-corner-large);
+  --radius-full: var(--md-sys-shape-corner-full);
+
+  /* =====================================================================
+     ELEVATION - M3 levels 0-5, layered key + ambient shadows
+     ================================================================== */
+  --md-sys-elevation-0: none;
+  --md-sys-elevation-1:
+    0 1px 2px 0 rgb(0 0 0 / 0.30),
+    0 1px 3px 1px rgb(0 0 0 / 0.15);
+  --md-sys-elevation-2:
+    0 1px 2px 0 rgb(0 0 0 / 0.30),
+    0 2px 6px 2px rgb(0 0 0 / 0.15);
+  --md-sys-elevation-3:
+    0 1px 3px 0 rgb(0 0 0 / 0.30),
+    0 4px 8px 3px rgb(0 0 0 / 0.15);
+  --md-sys-elevation-4:
+    0 2px 3px 0 rgb(0 0 0 / 0.30),
+    0 6px 10px 4px rgb(0 0 0 / 0.15);
+  --md-sys-elevation-5:
+    0 4px 4px 0 rgb(0 0 0 / 0.30),
+    0 8px 12px 6px rgb(0 0 0 / 0.15);
+
+  /* Surface-tint overlay opacity that pairs with each elevation level */
+  --md-sys-elevation-tint-opacity-0: 0;
+  --md-sys-elevation-tint-opacity-1: 0.05;
+  --md-sys-elevation-tint-opacity-2: 0.08;
+  --md-sys-elevation-tint-opacity-3: 0.11;
+  --md-sys-elevation-tint-opacity-4: 0.12;
+  --md-sys-elevation-tint-opacity-5: 0.14;
+
+  /* =====================================================================
+     STATE LAYERS - M3 interaction opacities
+     ================================================================== */
+  --md-sys-state-hover-opacity: 0.08;
+  --md-sys-state-focus-opacity: 0.10;
+  --md-sys-state-pressed-opacity: 0.10;
+  --md-sys-state-dragged-opacity: 0.16;
+  --md-sys-state-disabled-content-opacity: 0.38;
+  --md-sys-state-disabled-container-opacity: 0.12;
+
+  /* =====================================================================
+     MOTION - durations + easings
+     ================================================================== */
+  --md-sys-motion-duration-short: 100ms;
+  --md-sys-motion-duration-medium: 200ms;
+  --md-sys-motion-duration-long: 400ms;
+  --md-sys-motion-easing-standard: cubic-bezier(0.2, 0, 0, 1);
+  --md-sys-motion-easing-emphasized: cubic-bezier(0.2, 0, 0, 1);
+  --md-sys-motion-easing-decelerate: cubic-bezier(0, 0, 0, 1);
+  --md-sys-motion-easing-accelerate: cubic-bezier(0.3, 0, 1, 1);
+
+  /* =====================================================================
+     SPACING - 4px base grid
+     ================================================================== */
+  --md-sys-spacing-1: 4px;
+  --md-sys-spacing-2: 8px;
+  --md-sys-spacing-3: 12px;
+  --md-sys-spacing-4: 16px;
+  --md-sys-spacing-5: 20px;
+  --md-sys-spacing-6: 24px;
+  --md-sys-spacing-8: 32px;
+  --md-sys-spacing-10: 40px;
+  --md-sys-spacing-12: 48px;
+
+  /* =====================================================================
+     TYPE SCALE - size / line-height / weight / tracking per role.
+     Each role also exposes a -font shorthand usable directly in font:
+     ================================================================== */
+
+  /* Display */
+  --md-sys-typescale-display-large-size: 57px;
+  --md-sys-typescale-display-large-line-height: 64px;
+  --md-sys-typescale-display-large-weight: 400;
+  --md-sys-typescale-display-large-tracking: -0.25px;
+  --md-sys-typescale-display-large-font:
+    var(--md-sys-typescale-display-large-weight)
+    var(--md-sys-typescale-display-large-size) /
+    var(--md-sys-typescale-display-large-line-height)
+    var(--md-sys-typeface-brand);
+
+  --md-sys-typescale-display-medium-size: 45px;
+  --md-sys-typescale-display-medium-line-height: 52px;
+  --md-sys-typescale-display-medium-weight: 400;
+  --md-sys-typescale-display-medium-tracking: 0px;
+  --md-sys-typescale-display-medium-font:
+    var(--md-sys-typescale-display-medium-weight)
+    var(--md-sys-typescale-display-medium-size) /
+    var(--md-sys-typescale-display-medium-line-height)
+    var(--md-sys-typeface-brand);
+
+  --md-sys-typescale-display-small-size: 36px;
+  --md-sys-typescale-display-small-line-height: 44px;
+  --md-sys-typescale-display-small-weight: 400;
+  --md-sys-typescale-display-small-tracking: 0px;
+  --md-sys-typescale-display-small-font:
+    var(--md-sys-typescale-display-small-weight)
+    var(--md-sys-typescale-display-small-size) /
+    var(--md-sys-typescale-display-small-line-height)
+    var(--md-sys-typeface-brand);
+
+  /* Headline */
+  --md-sys-typescale-headline-large-size: 32px;
+  --md-sys-typescale-headline-large-line-height: 40px;
+  --md-sys-typescale-headline-large-weight: 400;
+  --md-sys-typescale-headline-large-tracking: 0px;
+  --md-sys-typescale-headline-large-font:
+    var(--md-sys-typescale-headline-large-weight)
+    var(--md-sys-typescale-headline-large-size) /
+    var(--md-sys-typescale-headline-large-line-height)
+    var(--md-sys-typeface-brand);
+
+  --md-sys-typescale-headline-medium-size: 28px;
+  --md-sys-typescale-headline-medium-line-height: 36px;
+  --md-sys-typescale-headline-medium-weight: 400;
+  --md-sys-typescale-headline-medium-tracking: 0px;
+  --md-sys-typescale-headline-medium-font:
+    var(--md-sys-typescale-headline-medium-weight)
+    var(--md-sys-typescale-headline-medium-size) /
+    var(--md-sys-typescale-headline-medium-line-height)
+    var(--md-sys-typeface-brand);
+
+  --md-sys-typescale-headline-small-size: 24px;
+  --md-sys-typescale-headline-small-line-height: 32px;
+  --md-sys-typescale-headline-small-weight: 400;
+  --md-sys-typescale-headline-small-tracking: 0px;
+  --md-sys-typescale-headline-small-font:
+    var(--md-sys-typescale-headline-small-weight)
+    var(--md-sys-typescale-headline-small-size) /
+    var(--md-sys-typescale-headline-small-line-height)
+    var(--md-sys-typeface-brand);
+
+  /* Title */
+  --md-sys-typescale-title-large-size: 22px;
+  --md-sys-typescale-title-large-line-height: 28px;
+  --md-sys-typescale-title-large-weight: 500;
+  --md-sys-typescale-title-large-tracking: 0px;
+  --md-sys-typescale-title-large-font:
+    var(--md-sys-typescale-title-large-weight)
+    var(--md-sys-typescale-title-large-size) /
+    var(--md-sys-typescale-title-large-line-height)
+    var(--md-sys-typeface-brand);
+
+  --md-sys-typescale-title-medium-size: 16px;
+  --md-sys-typescale-title-medium-line-height: 24px;
+  --md-sys-typescale-title-medium-weight: 500;
+  --md-sys-typescale-title-medium-tracking: 0.15px;
+  --md-sys-typescale-title-medium-font:
+    var(--md-sys-typescale-title-medium-weight)
+    var(--md-sys-typescale-title-medium-size) /
+    var(--md-sys-typescale-title-medium-line-height)
+    var(--md-sys-typeface-plain);
+
+  --md-sys-typescale-title-small-size: 14px;
+  --md-sys-typescale-title-small-line-height: 20px;
+  --md-sys-typescale-title-small-weight: 500;
+  --md-sys-typescale-title-small-tracking: 0.1px;
+  --md-sys-typescale-title-small-font:
+    var(--md-sys-typescale-title-small-weight)
+    var(--md-sys-typescale-title-small-size) /
+    var(--md-sys-typescale-title-small-line-height)
+    var(--md-sys-typeface-plain);
+
+  /* Body */
+  --md-sys-typescale-body-large-size: 16px;
+  --md-sys-typescale-body-large-line-height: 24px;
+  --md-sys-typescale-body-large-weight: 400;
+  --md-sys-typescale-body-large-tracking: 0.5px;
+  --md-sys-typescale-body-large-font:
+    var(--md-sys-typescale-body-large-weight)
+    var(--md-sys-typescale-body-large-size) /
+    var(--md-sys-typescale-body-large-line-height)
+    var(--md-sys-typeface-plain);
+
+  --md-sys-typescale-body-medium-size: 14px;
+  --md-sys-typescale-body-medium-line-height: 20px;
+  --md-sys-typescale-body-medium-weight: 400;
+  --md-sys-typescale-body-medium-tracking: 0.25px;
+  --md-sys-typescale-body-medium-font:
+    var(--md-sys-typescale-body-medium-weight)
+    var(--md-sys-typescale-body-medium-size) /
+    var(--md-sys-typescale-body-medium-line-height)
+    var(--md-sys-typeface-plain);
+
+  --md-sys-typescale-body-small-size: 12px;
+  --md-sys-typescale-body-small-line-height: 16px;
+  --md-sys-typescale-body-small-weight: 400;
+  --md-sys-typescale-body-small-tracking: 0.4px;
+  --md-sys-typescale-body-small-font:
+    var(--md-sys-typescale-body-small-weight)
+    var(--md-sys-typescale-body-small-size) /
+    var(--md-sys-typescale-body-small-line-height)
+    var(--md-sys-typeface-plain);
+
+  /* Label */
+  --md-sys-typescale-label-large-size: 14px;
+  --md-sys-typescale-label-large-line-height: 20px;
+  --md-sys-typescale-label-large-weight: 500;
+  --md-sys-typescale-label-large-tracking: 0.1px;
+  --md-sys-typescale-label-large-font:
+    var(--md-sys-typescale-label-large-weight)
+    var(--md-sys-typescale-label-large-size) /
+    var(--md-sys-typescale-label-large-line-height)
+    var(--md-sys-typeface-plain);
+
+  --md-sys-typescale-label-medium-size: 12px;
+  --md-sys-typescale-label-medium-line-height: 16px;
+  --md-sys-typescale-label-medium-weight: 500;
+  --md-sys-typescale-label-medium-tracking: 0.5px;
+  --md-sys-typescale-label-medium-font:
+    var(--md-sys-typescale-label-medium-weight)
+    var(--md-sys-typescale-label-medium-size) /
+    var(--md-sys-typescale-label-medium-line-height)
+    var(--md-sys-typeface-plain);
+
+  --md-sys-typescale-label-small-size: 11px;
+  --md-sys-typescale-label-small-line-height: 16px;
+  --md-sys-typescale-label-small-weight: 500;
+  --md-sys-typescale-label-small-tracking: 0.5px;
+  --md-sys-typescale-label-small-font:
+    var(--md-sys-typescale-label-small-weight)
+    var(--md-sys-typescale-label-small-size) /
+    var(--md-sys-typescale-label-small-line-height)
+    var(--md-sys-typeface-plain);
+
+  /* =====================================================================
+     COMPONENT DEFAULTS shared by the base components
+     ================================================================== */
+  --md-comp-focus-ring-width: 3px;
+  --md-comp-focus-ring-offset: 2px;
+  --md-comp-focus-ring-color: var(--md-sys-color-primary);
+  --md-comp-scrollbar-size: 12px;
+  --md-comp-scrollbar-thumb: #c0c4c9;
+  --md-comp-scrollbar-thumb-hover: #a5aab0;
+  --md-comp-scrollbar-track: transparent;
+}
+
+/* =============================================================================
+   DARK SCHEME - only the tokens that change.
+   Block 1: OS preference wins unless the user explicitly chose light.
+   ========================================================================== */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    color-scheme: dark;
+
+    --md-sys-color-primary: #a8c7fa;
+    --md-sys-color-on-primary: #062e6f;
+    --md-sys-color-primary-container: #0842a0;
+    --md-sys-color-on-primary-container: #d3e3fd;
+    --md-sys-color-primary-fixed: #d3e3fd;
+    --md-sys-color-primary-fixed-dim: #a8c7fa;
+    --md-sys-color-on-primary-fixed: #041e49;
+    --md-sys-color-on-primary-fixed-variant: #0842a0;
+    --md-sys-color-inverse-primary: #1a73e8;
+
+    --md-sys-color-secondary: #bec6dc;
+    --md-sys-color-on-secondary: #283141;
+    --md-sys-color-secondary-container: #3e4759;
+    --md-sys-color-on-secondary-container: #dae2f9;
+
+    --md-sys-color-tertiary: #ddbce0;
+    --md-sys-color-on-tertiary: #3f2844;
+    --md-sys-color-tertiary-container: #573e5c;
+    --md-sys-color-on-tertiary-container: #fad8fd;
+
+    --md-sys-color-background: #1f1f1f;
+    --md-sys-color-on-background: #e3e3e3;
+    --md-sys-color-surface: #1f1f1f;
+    --md-sys-color-on-surface: #e3e3e3;
+    --md-sys-color-surface-variant: #444746;
+    --md-sys-color-on-surface-variant: #c4c7c5;
+    --md-sys-color-surface-dim: #131314;
+    --md-sys-color-surface-bright: #3b3b3b;
+    --md-sys-color-surface-container-lowest: #0e0e0e;
+    --md-sys-color-surface-container-low: #1b1b1b;
+    --md-sys-color-surface-container: #262626;
+    --md-sys-color-surface-container-high: #303030;
+    --md-sys-color-surface-container-highest: #3b3b3b;
+    --md-sys-color-surface-tint: #a8c7fa;
+
+    --md-sys-color-outline: #8e918f;
+    --md-sys-color-outline-variant: #444746;
+    --md-sys-color-inverse-surface: #e3e3e3;
+    --md-sys-color-inverse-on-surface: #303030;
+
+    --md-sys-color-error: #f2b8b5;
+    --md-sys-color-on-error: #601410;
+    --md-sys-color-error-container: #8c1d18;
+    --md-sys-color-on-error-container: #f9dedc;
+
+    --md-sys-color-success: #6dd58c;
+    --md-sys-color-on-success: #0a3818;
+    --md-sys-color-success-container: #0f5223;
+    --md-sys-color-on-success-container: #c4eed0;
+
+    --md-sys-color-warning: #ffb951;
+    --md-sys-color-on-warning: #4a2800;
+    --md-sys-color-warning-container: #6a3b00;
+    --md-sys-color-on-warning-container: #ffddb3;
+
+    --md-sys-color-info: #a8c7fa;
+    --md-sys-color-on-info: #062e6f;
+    --md-sys-color-info-container: #0842a0;
+    --md-sys-color-on-info-container: #d3e3fd;
+
+    /* Shadows read weaker on dark ground - deepen them. */
+    --md-sys-elevation-1:
+      0 1px 2px 0 rgb(0 0 0 / 0.55),
+      0 1px 3px 1px rgb(0 0 0 / 0.30);
+    --md-sys-elevation-2:
+      0 1px 2px 0 rgb(0 0 0 / 0.55),
+      0 2px 6px 2px rgb(0 0 0 / 0.30);
+    --md-sys-elevation-3:
+      0 1px 3px 0 rgb(0 0 0 / 0.55),
+      0 4px 8px 3px rgb(0 0 0 / 0.30);
+    --md-sys-elevation-4:
+      0 2px 3px 0 rgb(0 0 0 / 0.55),
+      0 6px 10px 4px rgb(0 0 0 / 0.30);
+    --md-sys-elevation-5:
+      0 4px 4px 0 rgb(0 0 0 / 0.55),
+      0 8px 12px 6px rgb(0 0 0 / 0.30);
+
+    --md-comp-scrollbar-thumb: #4a4a4a;
+    --md-comp-scrollbar-thumb-hover: #5f5f5f;
+  }
+}
+
+/* =============================================================================
+   DARK SCHEME - Block 2: explicit toggle. Identical values, so choosing dark
+   on a light OS behaves exactly like the OS-dark path.
+   ========================================================================== */
+:root[data-theme="dark"] {
+  color-scheme: dark;
+
+  --md-sys-color-primary: #a8c7fa;
+  --md-sys-color-on-primary: #062e6f;
+  --md-sys-color-primary-container: #0842a0;
+  --md-sys-color-on-primary-container: #d3e3fd;
+  --md-sys-color-primary-fixed: #d3e3fd;
+  --md-sys-color-primary-fixed-dim: #a8c7fa;
+  --md-sys-color-on-primary-fixed: #041e49;
+  --md-sys-color-on-primary-fixed-variant: #0842a0;
+  --md-sys-color-inverse-primary: #1a73e8;
+
+  --md-sys-color-secondary: #bec6dc;
+  --md-sys-color-on-secondary: #283141;
+  --md-sys-color-secondary-container: #3e4759;
+  --md-sys-color-on-secondary-container: #dae2f9;
+
+  --md-sys-color-tertiary: #ddbce0;
+  --md-sys-color-on-tertiary: #3f2844;
+  --md-sys-color-tertiary-container: #573e5c;
+  --md-sys-color-on-tertiary-container: #fad8fd;
+
+  --md-sys-color-background: #1f1f1f;
+  --md-sys-color-on-background: #e3e3e3;
+  --md-sys-color-surface: #1f1f1f;
+  --md-sys-color-on-surface: #e3e3e3;
+  --md-sys-color-surface-variant: #444746;
+  --md-sys-color-on-surface-variant: #c4c7c5;
+  --md-sys-color-surface-dim: #131314;
+  --md-sys-color-surface-bright: #3b3b3b;
+  --md-sys-color-surface-container-lowest: #0e0e0e;
+  --md-sys-color-surface-container-low: #1b1b1b;
+  --md-sys-color-surface-container: #262626;
+  --md-sys-color-surface-container-high: #303030;
+  --md-sys-color-surface-container-highest: #3b3b3b;
+  --md-sys-color-surface-tint: #a8c7fa;
+
+  --md-sys-color-outline: #8e918f;
+  --md-sys-color-outline-variant: #444746;
+  --md-sys-color-inverse-surface: #e3e3e3;
+  --md-sys-color-inverse-on-surface: #303030;
+
+  --md-sys-color-error: #f2b8b5;
+  --md-sys-color-on-error: #601410;
+  --md-sys-color-error-container: #8c1d18;
+  --md-sys-color-on-error-container: #f9dedc;
+
+  --md-sys-color-success: #6dd58c;
+  --md-sys-color-on-success: #0a3818;
+  --md-sys-color-success-container: #0f5223;
+  --md-sys-color-on-success-container: #c4eed0;
+
+  --md-sys-color-warning: #ffb951;
+  --md-sys-color-on-warning: #4a2800;
+  --md-sys-color-warning-container: #6a3b00;
+  --md-sys-color-on-warning-container: #ffddb3;
+
+  --md-sys-color-info: #a8c7fa;
+  --md-sys-color-on-info: #062e6f;
+  --md-sys-color-info-container: #0842a0;
+  --md-sys-color-on-info-container: #d3e3fd;
+
+  --md-sys-elevation-1:
+    0 1px 2px 0 rgb(0 0 0 / 0.55),
+    0 1px 3px 1px rgb(0 0 0 / 0.30);
+  --md-sys-elevation-2:
+    0 1px 2px 0 rgb(0 0 0 / 0.55),
+    0 2px 6px 2px rgb(0 0 0 / 0.30);
+  --md-sys-elevation-3:
+    0 1px 3px 0 rgb(0 0 0 / 0.55),
+    0 4px 8px 3px rgb(0 0 0 / 0.30);
+  --md-sys-elevation-4:
+    0 2px 3px 0 rgb(0 0 0 / 0.55),
+    0 6px 10px 4px rgb(0 0 0 / 0.30);
+  --md-sys-elevation-5:
+    0 4px 4px 0 rgb(0 0 0 / 0.55),
+    0 8px 12px 6px rgb(0 0 0 / 0.30);
+
+  --md-comp-scrollbar-thumb: #4a4a4a;
+  --md-comp-scrollbar-thumb-hover: #5f5f5f;
+}

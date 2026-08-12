@@ -1,0 +1,19 @@
+[package]
+name = "ca-agents"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+
+[dependencies]
+ca-core.workspace = true
+ca-llm.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+tracing.workspace = true
+async-trait.workspace = true
+toml = "0.9"
+
+[dev-dependencies]
+# The copilot tests drive an async trait method against a stub provider.
+tokio = { workspace = true, features = ["rt-multi-thread", "macros"] }

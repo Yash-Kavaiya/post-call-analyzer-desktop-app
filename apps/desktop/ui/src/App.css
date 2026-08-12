@@ -1,0 +1,21 @@
+/* App shell. All colour comes from theme tokens so both themes follow. */
+.app-root { display: flex; height: 100vh; overflow: hidden;
+  background: var(--surface); color: var(--on-surface); }
+
+.app-rail { display: flex; flex-direction: column; gap: 4px; width: 88px; padding: 12px 8px;
+  background: var(--surface-container-low); border-right: 1px solid var(--outline);
+  flex-shrink: 0; }
+.app-brand { font-size: 26px; text-align: center; padding: 8px 0 16px;
+  color: var(--md-sys-color-primary); }
+.app-rail-item { display: flex; flex-direction: column; align-items: center; gap: 4px;
+  padding: 10px 4px; border: 0; border-radius: var(--md-sys-shape-corner-large, 16px);
+  background: transparent; color: var(--on-surface-variant); cursor: pointer;
+  font: inherit; font-size: 11px; transition: background .15s, color .15s; }
+.app-rail-item:hover { background: var(--surface-container-high); color: var(--on-surface); }
+.app-rail-item.app-active { background: var(--primary-container, rgba(26,115,232,.14));
+  color: var(--md-sys-color-primary); }
+.app-rail-item:focus-visible { outline: 2px solid var(--md-sys-color-primary); outline-offset: 2px; }
+.app-rail-icon { font-size: 20px; line-height: 1; }
+.app-theme { margin-top: auto; }
+
+.app-main { flex: 1; overflow: auto; padding: 24px 28px; }

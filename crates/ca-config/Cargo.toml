@@ -1,0 +1,12 @@
+[package]
+name = "ca-config"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+
+[dependencies]
+ca-core.workspace = true
+ca-llm.workspace = true
+serde.workspace = true
+serde_json.workspace = true

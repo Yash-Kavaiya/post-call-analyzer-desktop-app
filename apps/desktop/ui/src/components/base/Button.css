@@ -1,0 +1,237 @@
+/* Material 3 Button - filled / tonal / outlined / text */
+
+.m3-button {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--md-sys-spacing-2);
+  border: none;
+  border-radius: var(--md-sys-shape-corner-full);
+  font: var(--md-sys-typescale-label-large-font);
+  letter-spacing: var(--md-sys-typescale-label-large-tracking);
+  white-space: nowrap;
+  cursor: pointer;
+  overflow: hidden;
+  isolation: isolate;
+  user-select: none;
+  -webkit-user-select: none;
+  text-decoration: none;
+  transition:
+    box-shadow var(--md-sys-motion-duration-medium)
+      var(--md-sys-motion-easing-standard),
+    background-color var(--md-sys-motion-duration-short)
+      var(--md-sys-motion-easing-standard),
+    border-color var(--md-sys-motion-duration-short)
+      var(--md-sys-motion-easing-standard),
+    color var(--md-sys-motion-duration-short)
+      var(--md-sys-motion-easing-standard);
+}
+
+/* The state layer is a tinted overlay in the button's own content colour,
+   which is exactly how M3 defines hover/press feedback. */
+.m3-button__state-layer {
+  position: absolute;
+  inset: 0;
+  background: currentColor;
+  opacity: 0;
+  pointer-events: none;
+  z-index: -1;
+  transition: opacity var(--md-sys-motion-duration-short)
+    var(--md-sys-motion-easing-standard);
+}
+
+.m3-button:hover:not(:disabled) .m3-button__state-layer {
+  opacity: var(--md-sys-state-hover-opacity);
+}
+
+.m3-button:focus-visible .m3-button__state-layer {
+  opacity: var(--md-sys-state-focus-opacity);
+}
+
+.m3-button:active:not(:disabled) .m3-button__state-layer {
+  opacity: var(--md-sys-state-pressed-opacity);
+}
+
+.m3-button__label {
+  display: inline-block;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.m3-button__icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+}
+
+.m3-button__icon > svg,
+.m3-button__icon > img {
+  width: 1.125em;
+  height: 1.125em;
+}
+
+/* ---------------------------------------------------------------- sizes -- */
+
+.m3-button--small {
+  min-height: 32px;
+  padding: 0 var(--md-sys-spacing-4);
+  font: var(--md-sys-typescale-label-medium-font);
+  letter-spacing: var(--md-sys-typescale-label-medium-tracking);
+  gap: var(--md-sys-spacing-1);
+}
+
+.m3-button--medium {
+  min-height: 40px;
+  padding: 0 var(--md-sys-spacing-6);
+}
+
+.m3-button--large {
+  min-height: 48px;
+  padding: 0 var(--md-sys-spacing-8);
+  font: var(--md-sys-typescale-title-medium-font);
+  letter-spacing: var(--md-sys-typescale-title-medium-tracking);
+}
+
+.m3-button--full-width {
+  width: 100%;
+}
+
+/* Icon-adjacent padding trim, per M3 spec. */
+.m3-button--medium:has(.m3-button__icon:first-of-type),
+.m3-button--medium.m3-button--loading {
+  padding-left: var(--md-sys-spacing-4);
+}
+
+/* -------------------------------------------------------------- variants -- */
+
+/* Filled - highest emphasis */
+.m3-button--filled {
+  background: var(--primary);
+  color: var(--on-primary);
+  box-shadow: var(--md-sys-elevation-0);
+}
+
+.m3-button--filled:hover:not(:disabled) {
+  box-shadow: var(--md-sys-elevation-1);
+}
+
+.m3-button--filled:active:not(:disabled) {
+  box-shadow: var(--md-sys-elevation-0);
+}
+
+/* Tonal - medium emphasis */
+.m3-button--tonal {
+  background: var(--secondary-container);
+  color: var(--on-secondary-container);
+  box-shadow: var(--md-sys-elevation-0);
+}
+
+.m3-button--tonal:hover:not(:disabled) {
+  box-shadow: var(--md-sys-elevation-1);
+}
+
+.m3-button--tonal:active:not(:disabled) {
+  box-shadow: var(--md-sys-elevation-0);
+}
+
+/* Outlined - medium/low emphasis */
+.m3-button--outlined {
+  background: transparent;
+  color: var(--primary);
+  box-shadow: none;
+  border: 1px solid var(--outline);
+}
+
+.m3-button--outlined:hover:not(:disabled) {
+  border-color: var(--primary);
+}
+
+.m3-button--outlined:focus-visible {
+  border-color: var(--primary);
+}
+
+/* Text - lowest emphasis */
+.m3-button--text {
+  background: transparent;
+  color: var(--primary);
+  padding-left: var(--md-sys-spacing-3);
+  padding-right: var(--md-sys-spacing-3);
+}
+
+.m3-button--text.m3-button--large {
+  padding-left: var(--md-sys-spacing-4);
+  padding-right: var(--md-sys-spacing-4);
+}
+
+/* -------------------------------------------------------------- disabled -- */
+
+.m3-button:disabled {
+  cursor: not-allowed;
+  box-shadow: none;
+  pointer-events: none;
+}
+
+.m3-button--filled:disabled,
+.m3-button--tonal:disabled {
+  background: color-mix(
+    in srgb,
+    var(--on-surface) 12%,
+    transparent
+  );
+  color: color-mix(in srgb, var(--on-surface) 38%, transparent);
+}
+
+.m3-button--outlined:disabled {
+  color: color-mix(in srgb, var(--on-surface) 38%, transparent);
+  border-color: color-mix(in srgb, var(--on-surface) 12%, transparent);
+}
+
+.m3-button--text:disabled {
+  color: color-mix(in srgb, var(--on-surface) 38%, transparent);
+}
+
+/* A loading button still reads as disabled but keeps the pointer usable
+   for tooltips on the wrapper. */
+.m3-button--loading {
+  cursor: progress;
+}
+
+/* --------------------------------------------------------------- spinner -- */
+
+.m3-button__spinner {
+  flex: none;
+  width: 1.125em;
+  height: 1.125em;
+  border-radius: 50%;
+  border: 2px solid currentColor;
+  border-top-color: transparent;
+  opacity: 0.9;
+  animation: m3-button-spin 700ms linear infinite;
+}
+
+@keyframes m3-button-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* ------------------------------------------------------------------ a11y -- */
+
+.m3-button:focus-visible {
+  outline: var(--md-comp-focus-ring-width) solid var(--md-comp-focus-ring-color);
+  outline-offset: var(--md-comp-focus-ring-offset);
+}
+
+@media (forced-colors: active) {
+  .m3-button {
+    border: 1px solid ButtonText;
+  }
+
+  .m3-button:disabled {
+    color: GrayText;
+    border-color: GrayText;
+  }
+}
