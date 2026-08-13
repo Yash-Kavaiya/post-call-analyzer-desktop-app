@@ -15,6 +15,12 @@ pub enum AgentKind {
     Coaching,
     CustomerExperience,
     ExecutiveSummary,
+    /// Deterministic detectors rather than a model. Kept in the same enum so
+    /// rule hits land in the findings ledger and the risk register alongside
+    /// everything else, with no second code path.
+    Rules,
+    /// The throttled agent that watches a call while it is still running.
+    LiveMonitor,
 }
 
 impl AgentKind {
@@ -28,6 +34,8 @@ impl AgentKind {
             AgentKind::Coaching => "coaching",
             AgentKind::CustomerExperience => "customer_experience",
             AgentKind::ExecutiveSummary => "executive_summary",
+            AgentKind::Rules => "rules",
+            AgentKind::LiveMonitor => "live_monitor",
         }
     }
 
@@ -42,6 +50,8 @@ impl AgentKind {
             AgentKind::Coaching => "Coaching",
             AgentKind::CustomerExperience => "Customer experience",
             AgentKind::ExecutiveSummary => "Executive summary",
+            AgentKind::Rules => "Live rules",
+            AgentKind::LiveMonitor => "Live monitor",
         }
     }
 
@@ -55,6 +65,8 @@ impl AgentKind {
             AgentKind::Coaching,
             AgentKind::CustomerExperience,
             AgentKind::ExecutiveSummary,
+            AgentKind::Rules,
+            AgentKind::LiveMonitor,
         ]
     }
 
@@ -86,6 +98,44 @@ pub enum Severity {
     Medium,
     High,
     Critical,
+}
+
+impl Severity {
+    /// The stored and wire form. Persisted in `findings.severity`, so changing
+    /// one of these strings orphans every row already written with the old one.
+    pub fn as_str(&self) -> &'static str {
+        match self {
+            Severity::Info => "info",
+            Severity::Low => "low",
+            Severity::Medium => "medium",
+            Severity::High => "high",
+            Severity::Critical => "critical",
+        }
+    }
+
+    /// Parse a label from a model or a database row. Case and surrounding
+    /// whitespace are forgiven; anything else is `None` so the caller decides
+    /// what an unrecognised severity means rather than being handed a guess.
+    pub fn parse(s: &str) -> Option<Severity> {
+        match s.trim().to_ascii_lowercase().as_str() {
+            "info" => Some(Severity::Info),
+            "low" => Some(Severity::Low),
+            "medium" => Some(Severity::Medium),
+            "high" => Some(Severity::High),
+            "critical" => Some(Severity::Critical),
+            _ => None,
+        }
+    }
+
+    /// Whether a finding at this severity fails the call.
+    ///
+    /// One definition, used by the compliance agent when it recomputes `passed`
+    /// and by any rollup that counts blocking findings — two thresholds that
+    /// drifted apart would let a call read as passing on one screen and failing
+    /// on another.
+    pub fn is_blocking(&self) -> bool {
+        matches!(self, Severity::High | Severity::Critical)
+    }
 }
 
 /// A single scored criterion on the QA scorecard.
@@ -302,6 +352,28 @@ pub struct ExecutiveSummary {
     pub citations: Vec<Citation>,
 }
 
+/// What the live monitor saw on its last pass over the call so far.
+///
+/// One agent rather than eight: a call analysed every twenty-five seconds
+/// cannot afford the whole battery, and a supervisor watching a live call wants
+/// one line, not eight panels.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct LiveMonitorReport {
+    pub call_id: CallId,
+    /// Customer sentiment right now, -1..=1.
+    pub sentiment: f32,
+    pub risk: Severity,
+    /// One sentence on where the call stands. Carried into the next pass so the
+    /// model has continuity without re-sending the whole conversation.
+    pub headline: String,
+    /// Wording the agent could use next. `None` when nothing in the window
+    /// supports a suggestion - an invented one is worse than none, because it
+    /// is read aloud to a customer.
+    pub say_next: Option<String>,
+    pub citations: Vec<Citation>,
+}
+
 /// Token and cost accounting for one provider call. Tracked per analysis so a
 /// 1,968-call batch can be costed before and after it runs.
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
@@ -375,5 +447,60 @@ mod tests {
     fn out_of_range_model_scores_are_clamped() {
         let s = Scorecard::compute_overall(&[c(5.0, 1.0, false)]);
         assert!((s - 100.0).abs() < 1e-4, "got {s}");
+    }
+
+    #[test]
+    fn the_new_agent_kinds_round_trip() {
+        assert_eq!(AgentKind::parse("rules"), Some(AgentKind::Rules));
+        assert_eq!(AgentKind::parse("live_monitor"), Some(AgentKind::LiveMonitor));
+        assert!(AgentKind::all().contains(&AgentKind::Rules));
+        assert!(AgentKind::all().contains(&AgentKind::LiveMonitor));
+    }
+
+    #[test]
+    fn every_agent_kind_has_a_distinct_wire_name() {
+        // `as_str` is a storage key; two agents sharing one would silently
+        // overwrite each other through the (call_id, agent) unique index.
+        let mut seen: Vec<&str> = AgentKind::all().iter().map(|k| k.as_str()).collect();
+        let total = seen.len();
+        seen.sort_unstable();
+        seen.dedup();
+        assert_eq!(seen.len(), total, "duplicate agent wire name");
+    }
+
+    #[test]
+    fn severity_labels_match_the_serialised_form() {
+        // `as_str` is what goes into the findings table and `Deserialize` is
+        // what reads it back. If they disagree, stored rows stop parsing.
+        for s in [
+            Severity::Info,
+            Severity::Low,
+            Severity::Medium,
+            Severity::High,
+            Severity::Critical,
+        ] {
+            assert_eq!(
+                serde_json::to_value(s).unwrap(),
+                serde_json::json!(s.as_str())
+            );
+            assert_eq!(Severity::parse(s.as_str()), Some(s));
+        }
+    }
+
+    #[test]
+    fn severity_parsing_forgives_case_and_rejects_the_unknown() {
+        assert_eq!(Severity::parse("  CRITICAL "), Some(Severity::Critical));
+        // Not defaulted here: a caller that silently reads "catastrophic" as
+        // medium would downgrade a finding it did not understand.
+        assert_eq!(Severity::parse("catastrophic"), None);
+    }
+
+    #[test]
+    fn only_high_and_critical_findings_fail_a_call() {
+        assert!(Severity::High.is_blocking());
+        assert!(Severity::Critical.is_blocking());
+        for s in [Severity::Info, Severity::Low, Severity::Medium] {
+            assert!(!s.is_blocking(), "{s:?} should not fail a call");
+        }
     }
 }

@@ -15,7 +15,8 @@ pub mod transcript;
 
 pub use analysis::{
     ActionItem, ActionItemsReport, AgentKind, Analysis, Citation, ComplianceReport, CriterionScore,
-    Finding, RootCauseReport, Scorecard, SentimentPoint, SentimentReport, Severity, Usage,
+    Finding, LiveMonitorReport, RootCauseReport, Scorecard, SentimentPoint, SentimentReport,
+    Severity, Usage,
 };
 pub use audio::{
     AcousticFeatures, AudioBuffer, AudioMeta, CrosstalkRegion, PauseRegion, PeakLevel,
@@ -28,4 +29,6 @@ pub use provider::{
     AgentContext, Caps, ChatRequest, ChatResponse, Diarizer, LlmProvider, Message, Role, Source,
     SourceItem, SourceKind, SpeakerTurn, TranscribeOptions, Transcriber,
 };
-pub use transcript::{Segment, Speaker, SpeakerRole, Transcript, Word};
+pub use transcript::{
+    ChannelTimeline, Segment, Speaker, SpeakerRole, SpeechSpan, Transcript, Word,
+};

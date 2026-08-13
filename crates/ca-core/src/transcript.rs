@@ -1,6 +1,54 @@
 use crate::ids::{CallId, SegmentId};
 use serde::{Deserialize, Serialize};
 
+/// A run of speech on one capture channel.
+///
+/// Produced by live capture, where each side of the call arrives on its own
+/// device, so the channel is known rather than inferred.
+#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SpeechSpan {
+    /// 0 is the microphone (the agent), 1 is the system loopback (the customer).
+    pub channel: u8,
+    pub start: f64,
+    pub end: f64,
+}
+
+/// Who was speaking when, taken from the capture device rather than guessed.
+///
+/// This is the one piece of speaker information the acoustic diarizer can never
+/// match: it is ground truth. A live-captured call therefore ends up with
+/// better speaker data than an ingested recording, at no cost, because the
+/// information already existed at capture time.
+#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ChannelTimeline {
+    pub spans: Vec<SpeechSpan>,
+}
+
+impl ChannelTimeline {
+    /// Which channel was speaking at `t`, if any.
+    ///
+    /// A gap belongs to nobody rather than to whoever spoke last: silence is
+    /// not evidence about the next word, and guessing here would put the wrong
+    /// speaker label on the first segment after every pause.
+    pub fn channel_at(&self, t: f64) -> Option<u8> {
+        self.spans
+            .iter()
+            .find(|s| t >= s.start && t <= s.end)
+            .map(|s| s.channel)
+    }
+
+    /// Total speech seconds on one channel.
+    pub fn speech_secs(&self, channel: u8) -> f64 {
+        self.spans
+            .iter()
+            .filter(|s| s.channel == channel)
+            .map(|s| (s.end - s.start).max(0.0))
+            .sum()
+    }
+}
+
 /// Which side of the conversation a diarized speaker turned out to be.
 ///
 /// Diarization gives us anonymous clusters (`Speaker 0`, `Speaker 1`); role
@@ -229,5 +277,51 @@ mod wire_tests {
         // the UI matches on, and changing it would break every comparison.
         let v = serde_json::to_value(SpeakerRole::Customer).unwrap();
         assert_eq!(v, serde_json::json!("customer"));
+    }
+
+    fn timeline() -> ChannelTimeline {
+        ChannelTimeline {
+            spans: vec![
+                SpeechSpan {
+                    channel: 0,
+                    start: 0.0,
+                    end: 2.0,
+                },
+                SpeechSpan {
+                    channel: 1,
+                    start: 2.5,
+                    end: 4.0,
+                },
+            ],
+        }
+    }
+
+    #[test]
+    fn the_channel_at_a_time_is_whichever_span_covers_it() {
+        let t = timeline();
+        assert_eq!(t.channel_at(1.0), Some(0));
+        assert_eq!(t.channel_at(3.0), Some(1));
+    }
+
+    #[test]
+    fn a_gap_in_the_timeline_belongs_to_nobody() {
+        // Silence is not evidence about the next word. Carrying the previous
+        // speaker forward would mislabel the first segment after every pause,
+        // which on a two-party call is most of them.
+        assert_eq!(timeline().channel_at(2.2), None);
+    }
+
+    #[test]
+    fn speech_seconds_are_summed_per_channel() {
+        let t = timeline();
+        assert!((t.speech_secs(0) - 2.0).abs() < 1e-9);
+        assert!((t.speech_secs(1) - 1.5).abs() < 1e-9);
+        assert_eq!(t.speech_secs(9), 0.0, "an absent channel has no speech");
+    }
+
+    #[test]
+    fn the_timeline_crosses_the_wire_as_camel_case() {
+        let v = serde_json::to_value(timeline()).unwrap();
+        assert!(v["spans"][0].get("channel").is_some(), "got {v}");
     }
 }
