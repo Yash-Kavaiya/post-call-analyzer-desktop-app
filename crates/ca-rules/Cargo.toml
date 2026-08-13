@@ -1,0 +1,17 @@
+[package]
+name = "ca-rules"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+
+[dependencies]
+ca-core.workspace = true
+# Card and Aadhaar detection is checksum-validated there rather than
+# pattern-matched here; re-implementing it would drift.
+ca-privacy.workspace = true
+regex.workspace = true
+tracing.workspace = true
+
+[dev-dependencies]
+serde_json.workspace = true
