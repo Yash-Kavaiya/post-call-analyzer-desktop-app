@@ -1,0 +1,28 @@
+[package]
+name = "ca-live"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+
+[dependencies]
+ca-core.workspace = true
+ca-rules.workspace = true
+ca-store.workspace = true
+ca-agents.workspace = true
+ca-privacy.workspace = true
+anyhow.workspace = true
+async-trait.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+tokio = { workspace = true, features = ["rt-multi-thread", "macros", "sync", "time"] }
+tracing.workspace = true
+reqwest.workspace = true
+
+# WASAPI loopback capture. Apache-2.0, so it passes the licence policy, and it
+# reaches loopback by handing an *output* device to build_input_stream.
+[target.'cfg(windows)'.dependencies]
+cpal = "0.16"
+
+[dev-dependencies]
+tokio = { workspace = true, features = ["rt-multi-thread", "macros", "sync", "time"] }
