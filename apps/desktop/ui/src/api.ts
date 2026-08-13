@@ -633,3 +633,88 @@ export function runDuration(startedAt: string, finishedAt: string | null): strin
   if (mins < 60) return `${mins}m ${secs % 60}s`
   return `${Math.floor(mins / 60)}h ${mins % 60}m`
 }
+
+// ------------------------------------------------------------------- live
+
+/** Which capture device an utterance arrived on. */
+export type LiveChannel = 'agent' | 'customer'
+
+export interface AudioDevices {
+  inputs: string[]
+  outputs: string[]
+  /** False when this build cannot capture at all. */
+  supported: boolean
+}
+
+export interface LiveStarted {
+  callId: string
+  /** False still records and still runs the offline rules — only the live
+   *  transcript is missing, and the batch pass produces the real one. */
+  transcribing: boolean
+  advising: boolean
+}
+
+/**
+ * What the live screen is told, as it happens.
+ *
+ * Note the absence of a partial-text variant. Chunks are cut at pauses and
+ * transcribed whole, so text arrives already final and is never revised;
+ * `speaking` drives the listening marker instead.
+ */
+export type LiveEvent =
+  | { kind: 'started'; callId: string; agentDevice: string; customerDevice: string }
+  | { kind: 'level'; agentDbfs: number; customerDbfs: number; elapsedSecs: number }
+  | { kind: 'speaking'; channel: LiveChannel; speaking: boolean }
+  | {
+      kind: 'stable'
+      segmentId: string
+      channel: LiveChannel
+      startSecs: number
+      endSecs: number
+      text: string
+    }
+  | { kind: 'rule'; finding: Finding }
+  | {
+      kind: 'monitor'
+      sentiment: number
+      risk: Severity
+      headline: string
+      sayNext: string | null
+      elapsedSecs: number
+    }
+  | { kind: 'warning'; message: string }
+  | { kind: 'ended'; callId: string; durationSecs: number; mediaPath: string }
+
+export const listAudioDevices = (): Promise<AudioDevices> => invoke('list_audio_devices')
+
+/** Begin capturing. Returns once the session is running, not when it ends. */
+export const startLiveSession = (
+  inputDevice: string | null,
+  outputDevice: string | null,
+  replayPath?: string | null,
+): Promise<LiveStarted> =>
+  invoke('start_live_session', {
+    inputDevice,
+    outputDevice,
+    replayPath: replayPath ?? null,
+  })
+
+/** Stop capturing. The battery then runs in the background. */
+export const stopLiveSession = (): Promise<string | null> => invoke('stop_live_session')
+
+/** Subscribe to live session events. Returns an unsubscribe function. */
+export function onLiveEvent(cb: (e: LiveEvent) => void): () => void {
+  const pending = listen<LiveEvent>('live:event', (event) => cb(event.payload))
+  let disposed = false
+  let stop: (() => void) | null = null
+
+  pending.then((unlisten) => {
+    if (disposed) unlisten()
+    else stop = unlisten
+  })
+
+  return () => {
+    disposed = true
+    stop?.()
+  }
+}

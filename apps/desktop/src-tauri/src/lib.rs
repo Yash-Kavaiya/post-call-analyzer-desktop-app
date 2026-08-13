@@ -19,10 +19,18 @@ use std::sync::Arc;
 use tauri::{Emitter, Manager, State};
 
 /// Everything the commands need, resolved once at startup.
-struct AppState {
+mod live;
+
+pub(crate) struct AppState {
     store: Arc<Store>,
     whisper_binary: PathBuf,
     whisper_model: PathBuf,
+    /// `whisper-server`, used only by live assist. Separate from the CLI binary
+    /// because the live tier needs a warm model between chunks.
+    whisper_server: PathBuf,
+    /// The smaller, faster weights the live tier transcribes with. The
+    /// authoritative pass still uses `whisper_model`.
+    live_model: PathBuf,
 }
 
 /// Errors cross the IPC boundary as strings; the UI shows them verbatim, so
@@ -285,7 +293,7 @@ async fn run_batch(
 /// bookkeeping should still transcribe. The alternative — aborting a 60-hour
 /// run because a history row failed — trades the valuable thing for the
 /// record of it.
-fn record(
+pub(crate) fn record(
     store: &Store,
     run: &ca_core::ids::JobId,
     p: &Progress,
@@ -730,7 +738,7 @@ struct ProgressPayload {
     error: Option<String>,
 }
 
-fn progress_payload(p: &Progress) -> ProgressPayload {
+pub(crate) fn progress_payload(p: &Progress) -> ProgressPayload {
     let base = |kind: &str| ProgressPayload {
         kind: kind.to_string(),
         call_id: String::new(),
@@ -791,7 +799,9 @@ fn get_startup(state: State<'_, AppState>) -> CmdResult<Startup> {
     })
 }
 
-fn build_transcriber(state: &State<'_, AppState>) -> CmdResult<Arc<WhisperCliTranscriber>> {
+pub(crate) fn build_transcriber(
+    state: &State<'_, AppState>,
+) -> CmdResult<Arc<WhisperCliTranscriber>> {
     let cfg = WhisperCliConfig::new(&state.whisper_binary, &state.whisper_model);
     WhisperCliTranscriber::new(cfg).map(Arc::new).map_err(err)
 }
@@ -829,7 +839,10 @@ pub fn run() {
                 store,
                 whisper_binary: locate(app.handle(), "vendor/whisper/Release/whisper-cli.exe"),
                 whisper_model: locate(app.handle(), "models/ggml-small.en.bin"),
+                whisper_server: locate(app.handle(), "vendor/whisper/Release/whisper-server.exe"),
+                live_model: locate(app.handle(), "models/ggml-base.en.bin"),
             });
+            app.manage(live::LiveHandle::default());
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
@@ -860,6 +873,9 @@ pub fn run() {
             get_corpus_report,
             get_findings,
             get_risk_register,
+            live::list_audio_devices,
+            live::start_live_session,
+            live::stop_live_session,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

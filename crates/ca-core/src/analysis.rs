@@ -70,6 +70,32 @@ impl AgentKind {
         ]
     }
 
+    /// The agents `Analyzer::run_battery` actually runs, in order.
+    ///
+    /// A strict subset of [`AgentKind::all`], and the distinction matters: the
+    /// full list is every kind of analysis result that can be *stored*, which
+    /// now includes two that no batch pass produces. `Rules` is written by the
+    /// deterministic live detectors and `LiveMonitor` by the live tier, so
+    /// costing a batch against `all()` would over-count by two provider calls
+    /// per call that are never made.
+    pub fn battery() -> &'static [AgentKind] {
+        &[
+            AgentKind::QaScorecard,
+            AgentKind::Sentiment,
+            AgentKind::Compliance,
+            AgentKind::RootCause,
+            AgentKind::ActionItems,
+            AgentKind::Coaching,
+            AgentKind::CustomerExperience,
+            AgentKind::ExecutiveSummary,
+        ]
+    }
+
+    /// True when this agent is produced by a live session rather than a batch.
+    pub fn is_live_only(&self) -> bool {
+        matches!(self, AgentKind::Rules | AgentKind::LiveMonitor)
+    }
+
     pub fn parse(s: &str) -> Option<AgentKind> {
         AgentKind::all().iter().copied().find(|k| k.as_str() == s)
     }
@@ -458,6 +484,22 @@ mod tests {
         );
         assert!(AgentKind::all().contains(&AgentKind::Rules));
         assert!(AgentKind::all().contains(&AgentKind::LiveMonitor));
+    }
+
+    #[test]
+    fn the_battery_is_exactly_the_agents_a_batch_pass_bills_for() {
+        // Costing a batch against `all()` would over-count by two provider
+        // calls per call that are never made.
+        assert!(AgentKind::battery().iter().all(|k| !k.is_live_only()));
+        assert_eq!(
+            AgentKind::battery().len(),
+            AgentKind::all()
+                .iter()
+                .filter(|k| !k.is_live_only())
+                .count()
+        );
+        assert!(AgentKind::Rules.is_live_only());
+        assert!(AgentKind::LiveMonitor.is_live_only());
     }
 
     #[test]

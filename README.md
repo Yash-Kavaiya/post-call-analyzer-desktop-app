@@ -42,6 +42,20 @@
 - 🖥️ **Windows Desktop App** — Tauri 2 + React, native feel
 - 🔐 **Credential Manager** — API keys stored securely, never exposed to the UI
 
+### Phase 3 — Live Call Assist ✅
+
+Capture a call as it happens and surface breaches while the agent can still act
+on them. See [docs/PHASE3_LIVE.md](docs/PHASE3_LIVE.md).
+
+- 🎧 **Two-stream capture** — your microphone is the agent, WASAPI loopback is
+  the customer, so speaker labels are exact rather than inferred
+- ⚡ **Live transcript** — `base.en` on a warm whisper server, chunks cut at
+  natural pauses
+- 🚨 **Deterministic alerts** — a spoken card number, an unbounded hold or an
+  unsupportable promise is caught offline, in milliseconds, with no model
+- 🧭 **Live monitor** — sentiment, risk and one suggested line, on a throttle
+- 📥 **Ends as an ordinary call** — the full Phase 2 battery runs on hang-up
+
 ### Phase 2 — Multi-Agent Battery ✅
 
 Eight agents run over every call, each producing a citable, structured result.
@@ -83,6 +97,8 @@ call-analyzer/
 │   ├── ca-diarize/               # Speaker diarization
 │   ├── ca-privacy/               # PII redaction
 │   ├── ca-agents/                # QA / sentiment / compliance agents
+│   ├── ca-rules/                 # Deterministic live detectors
+│   ├── ca-live/                  # Live capture, chunking, session loop
 │   ├── ca-llm/                   # NIM + OpenAI-compat + Anthropic + Gemini
 │   ├── ca-pipeline/              # Orchestration pipeline
 │   ├── ca-store/                 # SQLite corpus layer
@@ -93,7 +109,8 @@ call-analyzer/
 │   └── ca-cli/                   # Headless batch runner
 ├── docs/
 │   ├── PHASE1_FOUNDATIONS.md
-│   └── PHASE2_AGENTS.md
+│   ├── PHASE2_AGENTS.md
+│   └── PHASE3_LIVE.md
 ├── scripts/                      # Build & helper scripts
 ├── models/                       # Model configs & prompts
 ├── vendor/                       # Vendored dependencies
@@ -239,11 +256,12 @@ Launch the Tauri desktop app to:
 
 - [x] Phase 1: Foundations (transcription, diarization, PII, LLM scoring, dashboard)
 - [x] Phase 2: Multi-agent battery (QA, sentiment, compliance, root cause, action items, coaching, CX, exec summary)
-- [ ] Phase 3: Real-time streaming analysis
+- [x] Phase 3: Live call assist (two-stream capture, live transcript, deterministic alerts, live monitor)
 - [ ] Phase 4: Multi-tenant & cloud deployment
 - [ ] Phase 5: Plugin system for custom agents
 
-See [docs/PHASE2_AGENTS.md](docs/PHASE2_AGENTS.md) for Phase 2 details.
+See [docs/PHASE2_AGENTS.md](docs/PHASE2_AGENTS.md) and
+[docs/PHASE3_LIVE.md](docs/PHASE3_LIVE.md) for details.
 
 ---
 

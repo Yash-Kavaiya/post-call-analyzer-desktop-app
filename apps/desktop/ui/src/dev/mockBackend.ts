@@ -674,6 +674,95 @@ const AGENT_RUNS = [
   },
 ]
 
+// ---------------------------------------------------------------------- live
+
+/**
+ * A scripted live call, replayed into the event stream.
+ *
+ * The live screen is the one surface with no static state to look at: every
+ * pixel of it is driven by events arriving over time. Without this it can only
+ * be checked by putting on a headset and talking, which is not something a
+ * layout change should require.
+ *
+ * The script deliberately reaches every state the screen can be in — a blocking
+ * alert, a monitor pass with a suggestion, a warning, the listening caret, and
+ * the hand-off at the end.
+ */
+const LIVE_SCRIPT: { after: number; event: Record<string, unknown> }[] = [
+  { after: 0, event: { kind: 'started', callId: 'call_live_demo', agentDevice: 'Headset Microphone', customerDevice: 'Headset Earphone (loopback)' } },
+  { after: 400, event: { kind: 'speaking', channel: 'agent', speaking: true } },
+  { after: 1400, event: { kind: 'speaking', channel: 'agent', speaking: false } },
+  { after: 1500, event: { kind: 'stable', segmentId: 'lseg_1', channel: 'agent', startSecs: 0.4, endSecs: 4.1, text: 'Thanks for calling Northwind, my name is Priya. How can I help?' } },
+  { after: 2200, event: { kind: 'speaking', channel: 'customer', speaking: true } },
+  { after: 3600, event: { kind: 'speaking', channel: 'customer', speaking: false } },
+  { after: 3700, event: { kind: 'stable', segmentId: 'lseg_2', channel: 'customer', startSecs: 5.2, endSecs: 11.8, text: "I've been charged twice for order 4417 and nobody has got back to me." } },
+  { after: 4200, event: { kind: 'monitor', sentiment: -0.45, risk: 'medium', headline: 'Customer is frustrated about a duplicate charge and a missed callback.', sayNext: "I can see the duplicate charge — let me reverse it while you're on the line.", elapsedSecs: 12 } },
+  { after: 5200, event: { kind: 'speaking', channel: 'agent', speaking: true } },
+  { after: 6200, event: { kind: 'speaking', channel: 'agent', speaking: false } },
+  { after: 6300, event: { kind: 'stable', segmentId: 'lseg_3', channel: 'agent', startSecs: 13.0, endSecs: 17.4, text: 'Let me put you on hold while I check that.' } },
+  { after: 6500, event: { kind: 'rule', finding: { id: 'lfind_1', callId: 'call_live_demo', agent: 'rules', label: 'Live rules', code: 'HOLD_NOT_TIMEBOXED', title: 'Hold placed without a stated duration', detail: 'The agent went to hold without saying how long it would take.', severity: 'high', blocking: true, citations: [{ segmentId: 'lseg_3', start: 13.0, end: 17.4, quote: null }] } } },
+  { after: 7400, event: { kind: 'stable', segmentId: 'lseg_4', channel: 'customer', startSecs: 18.0, endSecs: 24.6, text: 'Fine. The card ends 1111, it was four one one one one one one one one one one one one one one one.' } },
+  { after: 7600, event: { kind: 'rule', finding: { id: 'lfind_2', callId: 'call_live_demo', agent: 'rules', label: 'Live rules', code: 'PCI_PAN_SPOKEN', title: 'Sensitive number spoken aloud', detail: 'A payment card number was said on the call by the customer. It is now in the recording.', severity: 'critical', blocking: true, citations: [{ segmentId: 'lseg_4', start: 18.0, end: 24.6, quote: null }] } } },
+  { after: 8000, event: { kind: 'monitor', sentiment: -0.15, risk: 'critical', headline: 'A card number is now in the recording; the hold was not time-boxed.', sayNext: "I'm going to stop you there — please don't read the card number aloud.", elapsedSecs: 25 } },
+  { after: 9000, event: { kind: 'warning', message: 'Live monitor unavailable: provider timed out' } },
+  { after: 10000, event: { kind: 'monitor', sentiment: 0.35, risk: 'medium', headline: 'Reversal confirmed; the customer sounds satisfied.', sayNext: null, elapsedSecs: 40 } },
+  { after: 10200, event: { kind: 'stable', segmentId: 'lseg_5', channel: 'customer', startSecs: 41.0, endSecs: 44.2, text: "Oh brilliant, that's a relief. Thank you." } },
+  { after: 11500, event: { kind: 'ended', callId: 'call_live_demo', durationSecs: 46, mediaPath: 'C:/live/call_live_demo.wav' } },
+]
+
+/** The scripted call is 46 seconds of conversation replayed in ~12 seconds. */
+const LIVE_DURATION_SECS = 46
+
+let liveTimers: number[] = []
+let liveMeter: number | null = null
+
+function stopLiveMeter() {
+  if (liveMeter !== null) clearInterval(liveMeter)
+  liveMeter = null
+}
+
+function stopLiveScript() {
+  for (const t of liveTimers) clearTimeout(t)
+  liveTimers = []
+  stopLiveMeter()
+}
+
+function playLiveScript() {
+  stopLiveScript()
+  for (const step of LIVE_SCRIPT) {
+    liveTimers.push(
+      setTimeout(() => {
+        emit('live:event', { event: 'live:event', id: 0, payload: step.event })
+      }, step.after) as unknown as number,
+    )
+  }
+  // A level tick, so the meters and the clock are exercised rather than frozen.
+  //
+  // Stops when the scripted call ends. The real backend emits no Level events
+  // after Ended, and a meter that kept running would leave the clock arguing
+  // with the duration the session reported.
+  let elapsed = 0
+  liveMeter = setInterval(() => {
+    elapsed += 0.5
+    if (elapsed > LIVE_DURATION_SECS) {
+      stopLiveMeter()
+      return
+    }
+    emit('live:event', {
+      event: 'live:event',
+      id: 0,
+      payload: {
+        kind: 'level',
+        // Deterministic wobble: a flat meter looks broken, a random one
+        // differs between reloads and cannot be compared.
+        agentDbfs: -50 + 25 * Math.abs(Math.sin(elapsed)),
+        customerDbfs: -50 + 25 * Math.abs(Math.cos(elapsed * 0.8)),
+        elapsedSecs: elapsed,
+      },
+    })
+  }, 250) as unknown as number
+}
+
 // ------------------------------------------------------------------ dispatch
 
 type Callback = (payload: unknown) => void
@@ -852,6 +941,29 @@ async function dispatch(cmd: string, args: Record<string, unknown>): Promise<unk
     }
     case 'get_risk_register':
       return RISK_REGISTER
+
+    case 'list_audio_devices':
+      return {
+        inputs: ['Headset Microphone (Jabra Evolve)', 'Microphone Array (Realtek)'],
+        outputs: ['Headset Earphone (Jabra Evolve)', 'Speakers (Realtek)'],
+        supported: true,
+      }
+    case 'start_live_session':
+      playLiveScript()
+      return { callId: 'call_live_demo', transcribing: true, advising: true }
+    case 'stop_live_session':
+      stopLiveScript()
+      emit('live:event', {
+        event: 'live:event',
+        id: 0,
+        payload: {
+          kind: 'ended',
+          callId: 'call_live_demo',
+          durationSecs: 46,
+          mediaPath: 'C:/live/call_live_demo.wav',
+        },
+      })
+      return 'call_live_demo'
     case 'get_agent_health':
       return AGENT_RUNS.map((r) => ({
         agent: r.agent,

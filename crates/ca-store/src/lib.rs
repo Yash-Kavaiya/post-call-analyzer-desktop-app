@@ -244,6 +244,20 @@ impl Store {
     }
 
     /// Where the call's media lives on disk, if it has been materialised.
+    /// Point a call at its media file.
+    ///
+    /// Live sessions register their call before any audio exists, so the path
+    /// is attached when the recording is finalised rather than at insert.
+    pub fn attach_media(&self, id: &CallId, path: &str) -> Result<()> {
+        let conn = self.lock()?;
+        conn.execute(
+            "UPDATE calls SET media_path = ?2, updated_at = ?3 WHERE id = ?1",
+            params![id.as_str(), path, chrono::Utc::now().to_rfc3339()],
+        )
+        .map_err(|e| CaError::Storage(format!("attach media: {e}")))?;
+        Ok(())
+    }
+
     pub fn media_path(&self, id: &CallId) -> Result<Option<String>> {
         let conn = self.lock()?;
         conn.query_row(

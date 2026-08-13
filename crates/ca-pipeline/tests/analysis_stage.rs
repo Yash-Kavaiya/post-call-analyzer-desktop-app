@@ -25,7 +25,9 @@ use std::sync::Arc;
 /// written down: adding an agent used to silently break three tests that had a
 /// number hardcoded in them.
 fn agents_per_call() -> usize {
-    AgentKind::all().len()
+    // The battery, not every AgentKind: `Rules` and `LiveMonitor` are produced
+    // by a live session and cost a batch pass nothing.
+    AgentKind::battery().len()
 }
 
 /// Returns a fixed scorecard and counts how often it was asked.

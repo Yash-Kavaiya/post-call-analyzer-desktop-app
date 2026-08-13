@@ -1,0 +1,360 @@
+/*
+ * Live call.
+ *
+ * Read mid-conversation, so the layout is ordered by urgency rather than by
+ * structure: alerts, then the read on the call, then the transcript, then the
+ * line to say. The transcript scrolls; nothing above it moves, because a
+ * reflowing alert strip is unreadable to someone who is talking.
+ */
+
+.lv-root {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  height: 100%;
+  min-height: 0;
+}
+
+.lv-root h2 {
+  margin: 0;
+  font-size: 22px;
+  font-weight: 500;
+}
+
+/* ------------------------------------------------------------------- setup */
+
+.lv-setup {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  max-width: 56ch;
+  padding: 20px;
+  border: 1px solid var(--outline);
+  border-radius: var(--md-sys-shape-corner-large, 16px);
+  background: var(--surface-container-low);
+}
+
+.lv-field {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  font-size: 12.5px;
+  color: var(--on-surface-variant);
+}
+
+.lv-field select {
+  padding: 9px 12px;
+  border: 1px solid var(--outline);
+  border-radius: 10px;
+  background: var(--surface);
+  color: var(--on-surface);
+  font: inherit;
+  font-size: 13.5px;
+}
+
+.lv-start,
+.lv-stop,
+.lv-open {
+  align-self: flex-start;
+  padding: 10px 20px;
+  border: 0;
+  border-radius: 999px;
+  font: inherit;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  background: var(--primary);
+  color: var(--on-primary);
+}
+
+.lv-stop {
+  background: var(--error);
+  color: var(--on-error);
+}
+
+.lv-open {
+  background: var(--surface-container-high);
+  color: var(--on-surface);
+}
+
+/* ------------------------------------------------------------------ header */
+
+.lv-head {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  flex-wrap: wrap;
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--outline);
+}
+
+.lv-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--outline);
+  flex: none;
+}
+
+.lv-recording {
+  background: var(--error);
+  animation: lv-pulse 1.6s ease-in-out infinite;
+}
+
+@keyframes lv-pulse {
+  50% { opacity: 0.25; }
+}
+
+/* Someone glancing at a clock mid-sentence should not have to re-read it, so
+   the digits are tabular and never reflow the header. */
+.lv-clock {
+  font-size: 20px;
+  font-variant-numeric: tabular-nums;
+  color: var(--on-surface-variant);
+}
+
+.lv-meters {
+  display: flex;
+  gap: 14px;
+  margin-left: auto;
+}
+
+.lv-level {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 11px;
+  color: var(--on-surface-variant);
+}
+
+.lv-level-track {
+  width: 74px;
+  height: 6px;
+  border-radius: 999px;
+  background: var(--surface-container-high);
+  overflow: hidden;
+}
+
+.lv-level-fill {
+  height: 100%;
+  background: var(--success, #146c2e);
+  transition: width 120ms linear;
+}
+
+.lv-level-fill.lv-hot { background: var(--error); }
+
+/* ------------------------------------------------------------------ alerts */
+
+.lv-alerts {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.lv-alert {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  gap: 10px;
+  padding: 9px 14px;
+  border: 1px solid var(--error);
+  border-left-width: 4px;
+  border-radius: var(--md-sys-shape-corner-medium, 12px);
+  background: var(--surface-container-low);
+  font-size: 13.5px;
+}
+
+.lv-alert-title { font-weight: 600; }
+
+.lv-alert-at {
+  font-variant-numeric: tabular-nums;
+  color: var(--on-surface-variant);
+  font-size: 12px;
+}
+
+.lv-sev {
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 10.5px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  background: var(--error-container);
+  color: var(--on-error-container);
+}
+
+.lv-sev-high {
+  background: var(--warning-container);
+  color: var(--on-warning-container);
+}
+
+/* ----------------------------------------------------------------- monitor */
+
+.lv-monitor {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px 16px;
+  border: 1px solid var(--outline);
+  border-radius: var(--md-sys-shape-corner-large, 16px);
+  background: var(--surface-container-low);
+}
+
+/* The plot is deliberately not full width. Stretched across the panel it reads
+   as a horizontal rule; at chart proportions it reads as a trend. */
+.lv-sentiment {
+  display: grid;
+  grid-template-columns: 5.5rem minmax(0, 240px) 3.5rem;
+  align-items: center;
+  justify-content: start;
+  gap: 14px;
+}
+
+.lv-sentiment-label {
+  font-size: 11px;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--on-surface-variant);
+}
+
+.lv-sentiment strong {
+  text-align: right;
+  font-size: 18px;
+  font-variant-numeric: tabular-nums;
+}
+
+.lv-bad { color: var(--error); }
+.lv-good { color: var(--success, #146c2e); }
+
+.lv-spark {
+  width: 100%;
+  height: 36px;
+  padding: 3px 6px;
+  box-sizing: border-box;
+  border-radius: 8px;
+  background: var(--surface-container-high);
+}
+
+.lv-spark-zero {
+  stroke: var(--outline);
+  stroke-width: 0.5;
+  stroke-dasharray: 2 2;
+  vector-effect: non-scaling-stroke;
+}
+
+.lv-spark-line {
+  fill: none;
+  stroke: var(--primary);
+  stroke-width: 2;
+  stroke-linejoin: round;
+  vector-effect: non-scaling-stroke;
+}
+
+.lv-headline {
+  margin: 0;
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+/* -------------------------------------------------------------- transcript */
+
+.lv-transcript {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 14px 16px;
+  border: 1px solid var(--outline);
+  border-radius: var(--md-sys-shape-corner-large, 16px);
+  background: var(--surface-container-low);
+}
+
+.lv-line {
+  display: grid;
+  grid-template-columns: 3.4rem 3.4rem 1fr;
+  gap: 10px;
+  margin: 0 0 7px;
+  font-size: 14px;
+  line-height: 1.55;
+}
+
+.lv-at {
+  color: var(--on-surface-variant);
+  font-variant-numeric: tabular-nums;
+  font-size: 12px;
+  padding-top: 2px;
+}
+
+.lv-who {
+  font-size: 10.5px;
+  font-weight: 600;
+  letter-spacing: 0.07em;
+  color: var(--on-surface-variant);
+  padding-top: 3px;
+}
+
+.lv-agent .lv-who { color: var(--primary); }
+.lv-customer .lv-who { color: var(--tertiary, var(--on-surface-variant)); }
+
+/* The caret is voice activity, not text that will be replaced in place. */
+.lv-caret {
+  animation: lv-blink 1s steps(2, start) infinite;
+  color: var(--on-surface-variant);
+}
+
+@keyframes lv-blink {
+  50% { opacity: 0; }
+}
+
+/* ---------------------------------------------------------------- say next */
+
+.lv-saynext {
+  display: flex;
+  align-items: baseline;
+  gap: 14px;
+  padding: 13px 16px;
+  border: 1px solid var(--primary);
+  border-left-width: 4px;
+  border-radius: var(--md-sys-shape-corner-large, 16px);
+  background: var(--surface-container-low);
+}
+
+.lv-saynext-label {
+  flex: none;
+  font-size: 10.5px;
+  font-weight: 600;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  color: var(--primary);
+}
+
+.lv-saynext p {
+  margin: 0;
+  font-size: 15px;
+  line-height: 1.5;
+}
+
+/* ------------------------------------------------------------------ states */
+
+.lv-hint,
+.lv-state {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.6;
+  color: var(--on-surface-variant);
+  max-width: 72ch;
+}
+
+.lv-warn {
+  margin: 0;
+  padding: 8px 13px;
+  border-radius: 10px;
+  background: var(--warning-container);
+  color: var(--on-warning-container);
+  font-size: 13px;
+}
+
+.lv-error {
+  margin: 0;
+  font-size: 13.5px;
+  color: var(--error);
+}

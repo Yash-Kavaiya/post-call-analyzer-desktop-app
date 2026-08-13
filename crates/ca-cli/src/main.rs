@@ -541,5 +541,14 @@ fn digest(agent: AgentKind, v: &serde_json::Value) -> String {
         AgentKind::ExecutiveSummary => {
             format!("{} — {}", s("customerOutcome"), short(s("primaryIssue")))
         }
+        // The rules tier files findings rather than an analysis payload, so a
+        // row for it only exists if something wrote one deliberately.
+        AgentKind::Rules => format!("{} finding(s)", n("findings")),
+        AgentKind::LiveMonitor => format!(
+            "{} risk, sentiment {:+.2} — {}",
+            s("risk"),
+            f("sentiment").unwrap_or(0.0),
+            short(s("headline"))
+        ),
     }
 }

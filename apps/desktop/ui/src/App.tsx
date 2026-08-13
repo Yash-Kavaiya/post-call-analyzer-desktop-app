@@ -12,13 +12,15 @@ import { CallsScreen } from './screens/CallsScreen'
 import { DashboardScreen } from './screens/DashboardScreen'
 import { IngestScreen } from './screens/IngestScreen'
 import { InsightsScreen } from './screens/InsightsScreen'
+import { LiveScreen } from './screens/LiveScreen'
 import { SettingsScreen } from './screens/SettingsScreen'
 import './App.css'
 
-type Tab = 'dashboard' | 'ingest' | 'calls' | 'insights' | 'settings'
+type Tab = 'dashboard' | 'live' | 'ingest' | 'calls' | 'insights' | 'settings'
 
 const TABS: { id: Tab; label: string; icon: string }[] = [
   { id: 'dashboard', label: 'Overview', icon: '◱' },
+  { id: 'live', label: 'Live', icon: '◉' },
   { id: 'ingest', label: 'Ingest', icon: '↧' },
   { id: 'calls', label: 'Calls', icon: '☰' },
   { id: 'insights', label: 'Insights', icon: '◈' },
@@ -80,6 +82,8 @@ export default function App() {
           <CallDetailScreen callId={selected} onBack={() => setSelected(null)} />
         ) : tab === 'dashboard' ? (
           <DashboardScreen onSelect={openCall} />
+        ) : tab === 'live' ? (
+          <LiveScreen onOpenCall={openCall} />
         ) : tab === 'ingest' ? (
           <IngestScreen />
         ) : tab === 'insights' ? (
