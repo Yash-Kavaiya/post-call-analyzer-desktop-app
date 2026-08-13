@@ -8,7 +8,7 @@
 //! Two properties matter more than raw recall:
 //!
 //! - **Stability.** The same value always maps to the same token within a
-//!   call, so "call me on [PHONE_1]" and "[PHONE_1] is my mobile" remain
+//!   call, so "call me on `[PHONE_1]`" and "`[PHONE_1]` is my mobile" remain
 //!   recognisably about one number. A model cannot reason about a caller who
 //!   is renamed on every mention.
 //! - **Precision on checksummed types.** Card and Aadhaar numbers are

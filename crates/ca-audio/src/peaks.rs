@@ -98,10 +98,10 @@ fn build_level(samples: &[f32], sample_rate: u32, bucket_secs: f64) -> Option<Pe
             let bin_hz = sample_rate as f32 / fft_size as f32;
             let lo_bin = (80.0 / bin_hz).floor() as usize;
             let hi_bin = ((4000.0 / bin_hz).ceil() as usize).min(spectrum.len().saturating_sub(1));
-            let mut acc = 0.0f32;
-            for b in lo_bin..=hi_bin {
-                acc += spectrum[b].norm_sqr();
-            }
+            let acc: f32 = spectrum[lo_bin..=hi_bin]
+                .iter()
+                .map(|bin| bin.norm_sqr())
+                .sum();
             (acc / (hi_bin.saturating_sub(lo_bin).max(1)) as f32).sqrt()
         } else {
             0.0
@@ -175,7 +175,7 @@ mod tests {
         let hi = lvl.min_max.iter().cloned().fold(f32::MIN, f32::max);
         let lo = lvl.min_max.iter().cloned().fold(f32::MAX, f32::min);
         assert!(hi > 0.4 && hi <= 1.0, "max peak {hi}");
-        assert!(lo < -0.4 && lo >= -1.0, "min peak {lo}");
+        assert!((-1.0..-0.4).contains(&lo), "min peak {lo}");
     }
 
     #[test]

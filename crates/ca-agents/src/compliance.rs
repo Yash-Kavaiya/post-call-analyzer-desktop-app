@@ -100,7 +100,9 @@ impl ComplianceAgent {
                 // Unevidenced compliance hits must not enter the ledger.
                 continue;
             }
-            let severity = parse_severity(&f.severity);
+            // An unrecognised severity is treated as medium rather than
+            // dropped: the finding is evidenced, only its label is unusable.
+            let severity = Severity::parse(&f.severity).unwrap_or(Severity::Medium);
             findings.push(Finding {
                 id: FindingId::new(),
                 call_id: transcript.call_id.clone(),
@@ -113,11 +115,9 @@ impl ComplianceAgent {
             });
         }
 
-        // passed is recomputed from surviving findings: high/critical always fail.
-        let has_blocking = findings
-            .iter()
-            .any(|f| matches!(f.severity, Severity::High | Severity::Critical));
-        let passed = !has_blocking;
+        // passed is recomputed from surviving findings: high/critical always
+        // fail, per the one definition in `Severity::is_blocking`.
+        let passed = !findings.iter().any(|f| f.severity.is_blocking());
 
         Ok(ComplianceReport {
             call_id: transcript.call_id.clone(),
@@ -125,16 +125,6 @@ impl ComplianceAgent {
             findings,
             summary: out.summary.trim().to_string(),
         })
-    }
-}
-
-fn parse_severity(s: &str) -> Severity {
-    match s.trim().to_ascii_lowercase().as_str() {
-        "info" => Severity::Info,
-        "low" => Severity::Low,
-        "high" => Severity::High,
-        "critical" => Severity::Critical,
-        _ => Severity::Medium,
     }
 }
 

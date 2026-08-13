@@ -83,8 +83,13 @@ enum Command {
     Show { call_id: String },
     /// Print a stored QA scorecard.
     Scorecard { call_id: String },
-    /// Print all stored agent analyses for a call.
-    Report { call_id: String },
+    /// Print everything the agent battery produced for a call.
+    Report {
+        call_id: String,
+        /// Print the full payloads as well as the digest.
+        #[arg(long, default_value_t = false)]
+        json: bool,
+    },
     /// Corpus and spend summary.
     Stats,
 }
@@ -372,23 +377,52 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             }
         }
 
-        Command::Report { call_id } => {
+        Command::Report { call_id, json } => {
             let id = ca_core::ids::CallId::from(call_id);
             println!("report for {id}\n");
-            for agent in [
-                AgentKind::QaScorecard,
-                AgentKind::Sentiment,
-                AgentKind::Compliance,
-                AgentKind::RootCause,
-                AgentKind::ActionItems,
-            ] {
-                match store.load_analysis(&id, agent)? {
-                    None => println!("[{}] (missing)", agent.as_str()),
+
+            // Every agent the build knows about, driven off `AgentKind::all()`.
+            // This list was written out by hand, so the three agents added after
+            // it was written were silently absent from every report.
+            let mut payloads = Vec::new();
+            for agent in AgentKind::all() {
+                match store.load_analysis(&id, *agent)? {
+                    None => println!("  {:<20} (not run)", agent.label()),
                     Some(v) => {
-                        println!("[{}]", agent.as_str());
-                        println!("{}\n", serde_json::to_string_pretty(&v)?);
+                        println!("  {:<20} {}", agent.label(), digest(*agent, &v));
+                        payloads.push((*agent, v));
                     }
                 }
+            }
+
+            // The ledger, not the compliance payload: it is the durable record,
+            // and it covers any agent that files findings.
+            let findings = store.findings(&id)?;
+            if !findings.is_empty() {
+                let blocking = findings.iter().filter(|f| f.blocking).count();
+                println!("\nfindings ({} total, {blocking} blocking)", findings.len());
+                for f in &findings {
+                    let at = f
+                        .citations
+                        .first()
+                        .map(|c| format!(" @ {}", ca_core::transcript::fmt_ts(c.start)))
+                        .unwrap_or_default();
+                    println!(
+                        "  [{:>8}] {:<24} {}{at}",
+                        f.severity.as_str(),
+                        short(&f.code),
+                        short(&f.title)
+                    );
+                }
+            }
+
+            if json {
+                for (agent, v) in payloads {
+                    println!("\n[{}]", agent.as_str());
+                    println!("{}", serde_json::to_string_pretty(&v)?);
+                }
+            } else if !payloads.is_empty() {
+                println!("\npass --json for the full payloads");
             }
         }
 
@@ -437,4 +471,75 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
 fn short(s: &str) -> String {
     s.chars().take(70).collect()
+}
+
+/// One line summarising what an agent found.
+///
+/// Read field by field out of the stored JSON rather than deserialised into the
+/// report type: a row written by an older build prints what it can rather than
+/// taking the whole report down. The match is over `AgentKind`, so adding an
+/// agent to the battery does not compile until it has a line here.
+fn digest(agent: AgentKind, v: &serde_json::Value) -> String {
+    let f = |key: &str| v.get(key).and_then(|x| x.as_f64());
+    let s = |key: &str| v.get(key).and_then(|x| x.as_str()).unwrap_or("");
+    let n = |key: &str| {
+        v.get(key)
+            .and_then(|x| x.as_array())
+            .map(|a| a.len())
+            .unwrap_or(0)
+    };
+
+    match agent {
+        AgentKind::QaScorecard => format!(
+            "{:.1}% over {} criteria",
+            f("overall").unwrap_or(0.0),
+            n("criteria")
+        ),
+        AgentKind::Sentiment => format!(
+            "{:+.2} across {} moments",
+            f("overall").unwrap_or(0.0),
+            n("trajectory")
+        ),
+        AgentKind::Compliance => {
+            let passed = v.get("passed").and_then(|x| x.as_bool()).unwrap_or(false);
+            format!(
+                "{} — {} finding(s)",
+                if passed { "pass" } else { "FAIL" },
+                n("findings")
+            )
+        }
+        AgentKind::RootCause => format!(
+            "{} ({:.0}% confidence) — {}",
+            s("category"),
+            f("confidence").unwrap_or(0.0) * 100.0,
+            short(s("primaryCause"))
+        ),
+        AgentKind::ActionItems => {
+            let high = v
+                .get("items")
+                .and_then(|x| x.as_array())
+                .map(|items| {
+                    items
+                        .iter()
+                        .filter(|i| i.get("priority").and_then(|p| p.as_str()) == Some("high"))
+                        .count()
+                })
+                .unwrap_or(0);
+            format!("{} item(s), {high} high", n("items"))
+        }
+        AgentKind::Coaching => format!(
+            "{} strength(s), {} improvement(s)",
+            n("strengths"),
+            n("improvements")
+        ),
+        AgentKind::CustomerExperience => format!(
+            "effort {:.0}%, escalation {:.0}%, churn {:.0}%",
+            f("effort").unwrap_or(0.0) * 100.0,
+            f("escalationRisk").unwrap_or(0.0) * 100.0,
+            f("churnRisk").unwrap_or(0.0) * 100.0,
+        ),
+        AgentKind::ExecutiveSummary => {
+            format!("{} — {}", s("customerOutcome"), short(s("primaryIssue")))
+        }
+    }
 }

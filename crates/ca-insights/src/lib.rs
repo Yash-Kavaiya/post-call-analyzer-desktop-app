@@ -31,6 +31,12 @@ const MIN_LIFT: f64 = 0.25;
 const MAX_PATTERNS: usize = 12;
 const MAX_TERMS_CONSIDERED: usize = 60;
 
+/// Below this, a call counts as one where the customer left unhappy.
+///
+/// Not zero: a score of −0.05 is a neutral call with rounding on it, and
+/// counting those would report half a healthy corpus as negative.
+const NEGATIVE_SENTIMENT: f32 = -0.2;
+
 /// What one call contributes to the corpus view.
 ///
 /// Assembled by the caller from stored analyses and transcripts, so this crate
@@ -44,12 +50,20 @@ pub struct CallFacts {
     pub escalation_risk: Option<f32>,
     pub churn_risk: Option<f32>,
     pub frustration: Option<f32>,
+    /// Whole-call customer sentiment, −1..=1.
+    pub sentiment: Option<f32>,
     /// Terms said more than once on this call.
     pub keywords: Vec<String>,
     /// Compliance finding codes raised against this call.
     pub compliance_codes: Vec<String>,
+    /// The compliance agent's verdict. `None` when it did not run — which is
+    /// not the same as passing, and must not be counted as either.
+    pub compliance_passed: Option<bool>,
     /// Root-cause label, when the agent produced one.
     pub primary_issue: Option<String>,
+    /// The root-cause agent's coarse bucket: billing, product, process, agent
+    /// or other. Free-text causes do not aggregate; these do.
+    pub root_cause_category: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
@@ -96,12 +110,26 @@ pub struct CorpusReport {
     pub qa_distribution: Vec<ScoreBucket>,
     pub mean_escalation_risk: Option<f32>,
     pub mean_churn_risk: Option<f32>,
+    /// Mean whole-call customer sentiment, −1..=1.
+    pub mean_sentiment: Option<f32>,
+    /// Share of the calls that have a sentiment score where the customer left
+    /// unhappy, 0..=1. Denominator is those calls, not the whole corpus: a
+    /// batch half-way through the sentiment agent would otherwise report a
+    /// falling share as sentiment improving.
+    pub negative_share: Option<f32>,
+    /// Share of the calls the compliance agent judged that it passed, 0..=1.
+    pub compliance_pass_rate: Option<f32>,
+    /// Calls with at least one finding severe enough to fail them.
+    pub failing_calls: usize,
     /// Most frequent topics across the corpus.
     pub top_topics: Vec<Counted>,
     /// Compliance codes by how many calls raised them.
     pub compliance_issues: Vec<Counted>,
     /// Root-cause labels by frequency.
     pub top_issues: Vec<Counted>,
+    /// Root causes rolled up into their five buckets — the view that answers
+    /// "is this a billing problem or a process problem".
+    pub root_cause_categories: Vec<Counted>,
     pub patterns: Vec<Pattern>,
 }
 
@@ -139,6 +167,28 @@ pub fn analyse_corpus(calls: &[CallFacts]) -> CorpusReport {
     let qa: Vec<f32> = calls.iter().filter_map(|c| c.qa_overall).collect();
     let escalation: Vec<f32> = calls.iter().filter_map(|c| c.escalation_risk).collect();
     let churn: Vec<f32> = calls.iter().filter_map(|c| c.churn_risk).collect();
+    let sentiment: Vec<f32> = calls.iter().filter_map(|c| c.sentiment).collect();
+
+    // Both rates are shares of the calls that actually have the measure, never
+    // of the corpus. A partly-analysed batch would otherwise read as improving
+    // purely because the agent had not caught up.
+    let negative_share = if sentiment.is_empty() {
+        None
+    } else {
+        let bad = sentiment
+            .iter()
+            .filter(|s| **s < NEGATIVE_SENTIMENT)
+            .count();
+        Some(bad as f32 / sentiment.len() as f32)
+    };
+
+    let judged: Vec<bool> = calls.iter().filter_map(|c| c.compliance_passed).collect();
+    let compliance_pass_rate = if judged.is_empty() {
+        None
+    } else {
+        Some(judged.iter().filter(|p| **p).count() as f32 / judged.len() as f32)
+    };
+    let failing_calls = judged.iter().filter(|p| !**p).count();
 
     // Ten-point bands. Finer buckets on a corpus of a few hundred calls produce
     // a comb rather than a distribution.
@@ -156,6 +206,7 @@ pub fn analyse_corpus(calls: &[CallFacts]) -> CorpusReport {
     let mut topics: HashMap<String, usize> = HashMap::new();
     let mut codes: HashMap<String, usize> = HashMap::new();
     let mut issues: HashMap<String, usize> = HashMap::new();
+    let mut categories: HashMap<String, usize> = HashMap::new();
 
     for c in calls {
         // Per call, not per mention: a term repeated twenty times on one call
@@ -180,6 +231,13 @@ pub fn analyse_corpus(calls: &[CallFacts]) -> CorpusReport {
                 *issues.entry(issue.to_string()).or_insert(0) += 1;
             }
         }
+
+        if let Some(category) = &c.root_cause_category {
+            let category = category.trim();
+            if !category.is_empty() {
+                *categories.entry(category.to_string()).or_insert(0) += 1;
+            }
+        }
     }
 
     let patterns = discover_patterns(calls, &topics);
@@ -190,12 +248,22 @@ pub fn analyse_corpus(calls: &[CallFacts]) -> CorpusReport {
         qa_distribution,
         mean_escalation_risk: mean(&escalation),
         mean_churn_risk: mean(&churn),
+        mean_sentiment: mean(&sentiment),
+        negative_share,
+        compliance_pass_rate,
+        failing_calls,
         top_topics: counted(topics, total, 12),
         compliance_issues: counted(codes, total, 12),
         top_issues: counted(issues, total, 12),
+        // Five buckets at most, so no truncation is possible — but the limit is
+        // passed anyway rather than assuming the agent's vocabulary is fixed.
+        root_cause_categories: counted(categories, total, 8),
         patterns,
     }
 }
+
+/// A named outcome and how to read it off one call, for the pattern finder.
+type Measure = (&'static str, fn(&CallFacts) -> Option<f32>);
 
 /// Compare each frequent term's outcome against calls without it.
 fn discover_patterns(calls: &[CallFacts], topics: &HashMap<String, usize>) -> Vec<Pattern> {
@@ -207,7 +275,12 @@ fn discover_patterns(calls: &[CallFacts], topics: &HashMap<String, usize>) -> Ve
     candidates.sort_by(|a, b| b.1.cmp(a.1).then_with(|| a.0.cmp(b.0)));
     candidates.truncate(MAX_TERMS_CONSIDERED);
 
-    let measures: [(&str, fn(&CallFacts) -> Option<f32>); 3] = [
+    // Every measure here must be non-negative, because the effect is reported
+    // as a ratio. Sentiment is deliberately absent: it runs −1..1, so −0.4
+    // against 0.2 would be published as "2× lower sentiment" when the two
+    // groups are on opposite sides of neutral. Sentiment is reported as a mean
+    // and a negative share instead, where the sign survives.
+    let measures: [Measure; 3] = [
         ("escalation risk", |c| c.escalation_risk),
         ("churn risk", |c| c.churn_risk),
         ("QA score", |c| c.qa_overall),
@@ -275,8 +348,7 @@ mod tests {
             churn_risk: Some(0.1),
             frustration: Some(0.2),
             keywords: keywords.iter().map(|k| k.to_string()).collect(),
-            compliance_codes: vec![],
-            primary_issue: None,
+            ..Default::default()
         }
     }
 
@@ -438,6 +510,123 @@ mod tests {
         assert_eq!(r.compliance_issues[0].calls, 2);
         assert_eq!(r.top_issues[0].label, "Payment failure");
         assert_eq!(r.top_issues[0].calls, 2);
+    }
+
+    #[test]
+    fn sentiment_is_averaged_with_its_sign_intact() {
+        // Averaging magnitudes would report a corpus split between delighted
+        // and furious customers as uniformly neutral-positive.
+        let calls = vec![
+            CallFacts {
+                sentiment: Some(0.6),
+                ..call("a", 80.0, 0.1, &[])
+            },
+            CallFacts {
+                sentiment: Some(-0.8),
+                ..call("b", 80.0, 0.1, &[])
+            },
+        ];
+        let r = analyse_corpus(&calls);
+        assert!(
+            (r.mean_sentiment.unwrap() - -0.1).abs() < 1e-6,
+            "got {:?}",
+            r.mean_sentiment
+        );
+    }
+
+    #[test]
+    fn the_negative_share_ignores_calls_that_are_merely_neutral() {
+        // −0.05 is a neutral call with rounding on it. Counting it would report
+        // half a healthy corpus as unhappy customers.
+        let calls = vec![
+            CallFacts {
+                sentiment: Some(-0.05),
+                ..call("neutral", 80.0, 0.1, &[])
+            },
+            CallFacts {
+                sentiment: Some(-0.9),
+                ..call("angry", 80.0, 0.1, &[])
+            },
+        ];
+        let r = analyse_corpus(&calls);
+        assert_eq!(r.negative_share, Some(0.5));
+    }
+
+    #[test]
+    fn rates_are_shares_of_the_calls_that_have_the_measure() {
+        // Half this corpus has not been through either agent. Dividing by the
+        // whole corpus would report the pass rate falling as coverage grew.
+        let calls = vec![
+            CallFacts {
+                sentiment: Some(-0.9),
+                compliance_passed: Some(false),
+                ..call("judged", 80.0, 0.1, &[])
+            },
+            call("not-yet", 80.0, 0.1, &[]),
+        ];
+        let r = analyse_corpus(&calls);
+        assert_eq!(r.negative_share, Some(1.0));
+        assert_eq!(r.compliance_pass_rate, Some(0.0));
+        assert_eq!(r.failing_calls, 1);
+    }
+
+    #[test]
+    fn a_call_the_compliance_agent_never_judged_is_neither_a_pass_nor_a_failure() {
+        let r = analyse_corpus(&[call("a", 80.0, 0.1, &[])]);
+        assert!(r.compliance_pass_rate.is_none());
+        assert_eq!(r.failing_calls, 0);
+        assert!(r.mean_sentiment.is_none());
+        assert!(r.negative_share.is_none());
+    }
+
+    #[test]
+    fn root_causes_roll_up_into_their_buckets() {
+        // The free-text cause differs on every call; the bucket is what
+        // aggregates into "this is a billing problem".
+        let calls = vec![
+            CallFacts {
+                primary_issue: Some("Double charge on renewal".into()),
+                root_cause_category: Some("billing".into()),
+                ..call("a", 80.0, 0.1, &[])
+            },
+            CallFacts {
+                primary_issue: Some("Card declined twice".into()),
+                root_cause_category: Some("billing".into()),
+                ..call("b", 80.0, 0.1, &[])
+            },
+            CallFacts {
+                primary_issue: Some("App crashes on upload".into()),
+                root_cause_category: Some("product".into()),
+                ..call("c", 80.0, 0.1, &[])
+            },
+        ];
+        let r = analyse_corpus(&calls);
+        assert_eq!(r.root_cause_categories[0].label, "billing");
+        assert_eq!(r.root_cause_categories[0].calls, 2);
+        assert_eq!(r.top_issues.len(), 3, "distinct causes were merged");
+    }
+
+    #[test]
+    fn sentiment_is_never_reported_as_a_ratio() {
+        // A term whose group averages −0.4 against +0.2 is not "2× lower
+        // sentiment" — the groups are on opposite sides of neutral, and a lift
+        // cannot say so. Sentiment is excluded from patterns for that reason.
+        let mut v: Vec<CallFacts> = (0..20)
+            .map(|i| CallFacts {
+                sentiment: Some(-0.4),
+                ..call(&format!("w{i}"), 80.0, 0.5, &["refund", "payment"])
+            })
+            .collect();
+        v.extend((0..20).map(|i| CallFacts {
+            sentiment: Some(0.2),
+            ..call(&format!("o{i}"), 80.0, 0.5, &["payment"])
+        }));
+        let r = analyse_corpus(&v);
+        assert!(
+            r.patterns.iter().all(|p| !p.outcome.contains("sentiment")),
+            "got {:?}",
+            r.patterns
+        );
     }
 
     #[test]

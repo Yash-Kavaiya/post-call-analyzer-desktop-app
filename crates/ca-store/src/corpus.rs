@@ -50,6 +50,10 @@ impl Store {
             let Ok(v) = serde_json::from_str::<serde_json::Value>(&payload) else {
                 continue;
             };
+            // Rows predating the camelCase rename are on disk in snake_case.
+            // Normalising here means each extraction below names one key rather
+            // than two, and cannot be updated for one spelling and not the other.
+            let v = crate::payload::normalise(v);
 
             let facts = by_call.entry(call_id.clone()).or_insert_with(|| CallFacts {
                 call_id: call_id.clone(),
@@ -74,6 +78,9 @@ impl Store {
                         .and_then(|x| x.as_f64())
                         .map(|x| x as f32);
                 }
+                "sentiment" => {
+                    facts.sentiment = v.get("overall").and_then(|x| x.as_f64()).map(|x| x as f32);
+                }
                 "compliance" => {
                     if let Some(findings) = v.get("findings").and_then(|x| x.as_array()) {
                         for f in findings {
@@ -82,23 +89,35 @@ impl Store {
                             }
                         }
                     }
+                    // Absent rather than false when the field cannot be read: a
+                    // call the agent never judged must not be counted as a
+                    // failure in the pass rate.
+                    facts.compliance_passed = v.get("passed").and_then(|x| x.as_bool());
                 }
                 "root_cause" => {
+                    // `primaryCause` is what `RootCauseReport` serialises. This
+                    // read looked only for `primaryIssue`, so every root-cause
+                    // row missed and the corpus panel was quietly being filled
+                    // by the executive summary instead. `rootCause` is kept as a
+                    // fallback for any row written under that earlier name.
                     facts.primary_issue = v
-                        .get("primaryIssue")
+                        .get("primaryCause")
+                        .or_else(|| v.get("primaryIssue"))
                         .or_else(|| v.get("rootCause"))
                         .and_then(|x| x.as_str())
                         .map(|s| s.to_string());
+                    facts.root_cause_category = v
+                        .get("category")
+                        .and_then(|x| x.as_str())
+                        .map(|s| s.to_string());
                 }
-                "executive_summary" => {
-                    // Only if root cause did not already provide one — that
-                    // agent is the more specific source for this field.
-                    if facts.primary_issue.is_none() {
-                        facts.primary_issue = v
-                            .get("primaryIssue")
-                            .and_then(|x| x.as_str())
-                            .map(|s| s.to_string());
-                    }
+                // Only if root cause did not already provide one — that
+                // agent is the more specific source for this field.
+                "executive_summary" if facts.primary_issue.is_none() => {
+                    facts.primary_issue = v
+                        .get("primaryIssue")
+                        .and_then(|x| x.as_str())
+                        .map(|s| s.to_string());
                 }
                 _ => {}
             }
@@ -305,6 +324,143 @@ mod tests {
             facts[0].primary_issue.as_deref(),
             Some("Payment gateway timeout")
         );
+    }
+
+    #[test]
+    fn the_root_cause_agents_own_field_name_is_the_one_that_is_read() {
+        // `RootCauseReport` serialises `primaryCause`. This read looked only for
+        // `primaryIssue`, so every root-cause row missed and the corpus panel
+        // was filled by the executive summary — which is a different question.
+        let s = store();
+        let id = add_call(&s, "a");
+        add_analysis(
+            &s,
+            &id,
+            AgentKind::ExecutiveSummary,
+            serde_json::json!({"primaryIssue": "Customer was unhappy"}),
+        );
+        add_analysis(
+            &s,
+            &id,
+            AgentKind::RootCause,
+            serde_json::json!({
+                "primaryCause": "Renewal charged twice",
+                "category": "billing",
+            }),
+        );
+
+        let facts = s.corpus_facts(100).unwrap();
+        assert_eq!(
+            facts[0].primary_issue.as_deref(),
+            Some("Renewal charged twice")
+        );
+        assert_eq!(facts[0].root_cause_category.as_deref(), Some("billing"));
+    }
+
+    #[test]
+    fn the_shape_the_agents_actually_write_is_the_shape_that_is_read() {
+        // Guards every extraction against a field rename in `ca-core`: the
+        // payloads here are serialised from the real report types rather than
+        // hand-written JSON, so a rename fails this test instead of silently
+        // emptying the corpus report.
+        use ca_core::analysis::{ComplianceReport, RootCauseReport, SentimentReport};
+
+        let s = store();
+        let id = add_call(&s, "a");
+
+        add_analysis(
+            &s,
+            &id,
+            AgentKind::Sentiment,
+            serde_json::to_value(SentimentReport {
+                call_id: id.clone(),
+                overall: -0.62,
+                trajectory: vec![],
+                summary: "Unhappy.".into(),
+            })
+            .unwrap(),
+        );
+        add_analysis(
+            &s,
+            &id,
+            AgentKind::Compliance,
+            serde_json::to_value(ComplianceReport {
+                call_id: id.clone(),
+                passed: false,
+                findings: vec![],
+                summary: "Failed.".into(),
+            })
+            .unwrap(),
+        );
+        add_analysis(
+            &s,
+            &id,
+            AgentKind::RootCause,
+            serde_json::to_value(RootCauseReport {
+                call_id: id.clone(),
+                primary_cause: "Renewal charged twice".into(),
+                category: "billing".into(),
+                confidence: 0.8,
+                contributing_factors: vec![],
+                recommended_fix: "Reconcile".into(),
+                citations: vec![],
+                summary: "Billing.".into(),
+            })
+            .unwrap(),
+        );
+
+        let facts = s.corpus_facts(100).unwrap();
+        assert_eq!(facts[0].sentiment, Some(-0.62));
+        assert_eq!(facts[0].compliance_passed, Some(false));
+        assert_eq!(
+            facts[0].primary_issue.as_deref(),
+            Some("Renewal charged twice")
+        );
+        assert_eq!(facts[0].root_cause_category.as_deref(), Some("billing"));
+    }
+
+    #[test]
+    fn a_row_written_before_the_camel_case_rename_still_contributes() {
+        // A real corpus holds both shapes: the `analyses` table is keyed
+        // (call_id, agent), so an old row only changes when that agent is
+        // re-run, which for a paid batch is not something to require.
+        let s = store();
+        let id = add_call(&s, "a");
+        add_analysis(
+            &s,
+            &id,
+            AgentKind::RootCause,
+            serde_json::json!({
+                "call_id": "a",
+                "primary_cause": "Renewal charged twice",
+                "category": "billing",
+                "contributing_factors": ["retry"],
+            }),
+        );
+
+        let facts = s.corpus_facts(100).unwrap();
+        assert_eq!(
+            facts[0].primary_issue.as_deref(),
+            Some("Renewal charged twice")
+        );
+        assert_eq!(facts[0].root_cause_category.as_deref(), Some("billing"));
+    }
+
+    #[test]
+    fn a_compliance_agent_that_never_ran_leaves_no_verdict() {
+        // `None` and `Some(false)` are different states: one is unassessed, the
+        // other is a failed call, and the pass rate must not conflate them.
+        let s = store();
+        let id = add_call(&s, "a");
+        add_analysis(
+            &s,
+            &id,
+            AgentKind::QaScorecard,
+            serde_json::json!({"overall": 80.0}),
+        );
+        let facts = s.corpus_facts(100).unwrap();
+        assert!(facts[0].compliance_passed.is_none());
+        assert!(facts[0].sentiment.is_none());
     }
 
     #[test]

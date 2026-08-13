@@ -287,3 +287,358 @@
 }
 
 .ag-error { color: var(--error, #B3261E); }
+
+/* ------------------------------------------------------------- sentiment */
+
+/* A signed reading is drawn from the centre out. A 0..1 bar filled from the
+   left renders −0.8 and +0.8 identically once clamped, which loses the only
+   thing the number says. */
+.ag-signed {
+  display: grid;
+  grid-template-columns: 4.5rem 1fr 5rem;
+  align-items: center;
+  gap: 12px;
+}
+
+.ag-signed strong {
+  font-size: 24px;
+  font-variant-numeric: tabular-nums;
+}
+
+.ag-signed-word {
+  font-size: 11.5px;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--on-surface-variant);
+}
+
+.ag-signed-track {
+  position: relative;
+  height: 8px;
+  border-radius: 999px;
+  background: var(--surface-container-high);
+}
+
+.ag-signed-zero {
+  position: absolute;
+  left: 50%;
+  top: -3px;
+  bottom: -3px;
+  width: 1px;
+  background: var(--outline);
+}
+
+.ag-signed-fill {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  border-radius: 999px;
+  background: var(--on-surface-variant);
+}
+
+.ag-signed-neg .ag-signed-fill { background: var(--error); }
+.ag-signed-neg strong { color: var(--error); }
+
+.ag-signed-pos .ag-signed-fill { background: var(--success); }
+.ag-signed-pos strong { color: var(--success); }
+
+.ag-traj {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+/* Fixed height with a stretched viewBox: the plot is a shape, not a chart with
+   readable axes, and the moment list below carries the exact values. */
+.ag-traj-plot {
+  width: 100%;
+  height: 86px;
+  border-radius: var(--md-sys-shape-corner-medium, 12px);
+  background: var(--surface-container-high);
+  overflow: visible;
+}
+
+.ag-traj-zero {
+  stroke: var(--outline);
+  stroke-width: 0.4;
+  stroke-dasharray: 2 2;
+  vector-effect: non-scaling-stroke;
+}
+
+.ag-traj-line {
+  fill: none;
+  stroke: var(--primary);
+  stroke-width: 2;
+  stroke-linejoin: round;
+  stroke-linecap: round;
+  vector-effect: non-scaling-stroke;
+}
+
+/* Drawn as strokes rather than fills so `non-scaling-stroke` applies: the
+   viewBox is stretched horizontally, and a filled circle would come out as an
+   ellipse several times wider than it is tall. */
+.ag-traj-dot {
+  stroke: var(--on-surface-variant);
+  stroke-width: 6;
+  stroke-linecap: round;
+  vector-effect: non-scaling-stroke;
+}
+
+.ag-traj-dot.ag-traj-neg { stroke: var(--error); }
+.ag-traj-dot.ag-traj-pos { stroke: var(--success); }
+
+.ag-traj-moments {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.ag-traj-moments > li > button {
+  display: grid;
+  grid-template-columns: 3.4rem 1fr 3.4rem 5rem;
+  align-items: baseline;
+  gap: 10px;
+  width: 100%;
+  padding: 5px 8px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  font-size: 12.5px;
+  text-align: left;
+  cursor: pointer;
+}
+
+.ag-traj-moments > li > button:hover { background: var(--surface-container-high); }
+
+.ag-traj-moments > li > button:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: -2px;
+}
+
+.ag-traj-at {
+  color: var(--primary);
+  font-variant-numeric: tabular-nums;
+}
+
+.ag-traj-score {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.ag-traj-who,
+.ag-traj-label { color: var(--on-surface-variant); }
+
+.ag-traj-who {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+/* ------------------------------------------------------------ compliance */
+
+.ag-verdict {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.ag-verdict-badge {
+  padding: 3px 12px;
+  border-radius: 999px;
+  font-size: 11.5px;
+  font-weight: 600;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+}
+
+.ag-verdict-pass {
+  background: var(--success-container);
+  color: var(--on-success-container);
+}
+
+.ag-verdict-fail {
+  background: var(--error-container);
+  color: var(--on-error-container);
+}
+
+.ag-note-card.ag-bad { border-left-color: var(--error); }
+
+.ag-finding-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.ag-sev {
+  flex: none;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 10.5px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  background: var(--surface-container-highest);
+  color: var(--on-surface-variant);
+}
+
+.ag-sev-critical,
+.ag-sev-high {
+  background: var(--error-container);
+  color: var(--on-error-container);
+}
+
+.ag-sev-medium {
+  background: var(--warning-container);
+  color: var(--on-warning-container);
+}
+
+.ag-code {
+  align-self: flex-start;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--on-surface-variant);
+}
+
+/* ------------------------------------------------------------- root cause */
+
+.ag-cause-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.ag-cat {
+  padding: 3px 11px;
+  border-radius: 999px;
+  font-size: 11.5px;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  background: var(--secondary-container);
+  color: var(--on-secondary-container);
+}
+
+.ag-cat-billing {
+  background: var(--warning-container);
+  color: var(--on-warning-container);
+}
+
+.ag-cat-product,
+.ag-cat-process {
+  background: var(--primary-container);
+  color: var(--on-primary-container);
+}
+
+.ag-cat-agent {
+  background: var(--tertiary-container);
+  color: var(--on-tertiary-container);
+}
+
+.ag-list {
+  margin: 0;
+  padding-left: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 13px;
+  line-height: 1.55;
+  color: var(--on-surface-variant);
+}
+
+.ag-fix {
+  padding: 10px 13px;
+  border-radius: var(--md-sys-shape-corner-medium, 12px);
+  background: var(--surface-container-high);
+  border-left: 3px solid var(--primary);
+}
+
+.ag-fix p {
+  margin: 4px 0 0;
+  font-size: 13.5px;
+  line-height: 1.55;
+}
+
+/* ----------------------------------------------------------- action items */
+
+.ag-actions {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  counter-reset: ag-action;
+}
+
+.ag-action {
+  padding: 11px 13px;
+  border-radius: var(--md-sys-shape-corner-medium, 12px);
+  background: var(--surface-container-high);
+  border-left: 3px solid var(--outline);
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.ag-action.ag-prio-high { border-left-color: var(--error); }
+.ag-action.ag-prio-medium { border-left-color: var(--warning); }
+
+.ag-action-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  font-size: 13.5px;
+}
+
+.ag-action p {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.55;
+  color: var(--on-surface-variant);
+}
+
+.ag-prio {
+  flex: none;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 10.5px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  background: var(--surface-container-highest);
+  color: var(--on-surface-variant);
+}
+
+.ag-prio-chip-high {
+  background: var(--error-container);
+  color: var(--on-error-container);
+}
+
+.ag-prio-chip-medium {
+  background: var(--warning-container);
+  color: var(--on-warning-container);
+}
+
+.ag-action-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  font-size: 11.5px;
+  color: var(--on-surface-variant);
+}
+
+.ag-owner {
+  padding: 2px 8px;
+  border-radius: 999px;
+  border: 1px solid var(--outline);
+  text-transform: capitalize;
+}
+
+.ag-due { font-variant-numeric: tabular-nums; }

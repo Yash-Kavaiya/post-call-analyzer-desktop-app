@@ -82,7 +82,12 @@ impl Store {
                     payload: if error.is_some() {
                         None
                     } else {
-                        serde_json::from_str(&payload_raw).ok()
+                        // Normalised so a row written before the report types
+                        // were renamed to camelCase renders through the same
+                        // formatter as a fresh one.
+                        serde_json::from_str(&payload_raw)
+                            .ok()
+                            .map(crate::payload::normalise)
                     },
                     provider: r.get(2)?,
                     model: r.get(3)?,

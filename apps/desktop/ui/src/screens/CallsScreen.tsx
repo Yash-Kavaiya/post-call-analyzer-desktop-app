@@ -16,6 +16,39 @@ export interface CallsScreenProps {
 
 const PAGE_SIZE = 50
 
+/**
+ * Sentiment as a signed reading, or a dash when the agent has not run.
+ *
+ * Blank and 0.00 are different states and must not look alike: one is an
+ * unassessed call, the other is a call the agent judged as neutral.
+ */
+function sentimentCell(value: number | null) {
+  if (value == null) return <span className="calls-none">—</span>
+  const tone = value <= -0.2 ? 'bad' : value >= 0.2 ? 'ok' : 'neutral'
+  return (
+    <span className={`calls-sent calls-sent-${tone}`}>
+      {value > 0 ? '+' : value < 0 ? '−' : ''}
+      {Math.abs(value).toFixed(2)}
+    </span>
+  )
+}
+
+/**
+ * The compliance verdict, with the blocking-finding count when it failed.
+ *
+ * The count comes from the findings ledger rather than the agent's payload, so
+ * it stays right for any agent that files findings.
+ */
+function complianceCell(passed: boolean | null, blocking: number) {
+  if (passed == null) return <span className="calls-none">—</span>
+  if (passed) return <span className="calls-verdict calls-ok">pass</span>
+  return (
+    <span className="calls-verdict calls-bad">
+      fail{blocking > 0 ? ` · ${blocking}` : ''}
+    </span>
+  )
+}
+
 function stageTone(stage: string): string {
   switch (stage) {
     case 'analyzed':
@@ -94,6 +127,8 @@ export function CallsScreen({ onSelect }: CallsScreenProps) {
               <th>Stage</th>
               <th>Speakers</th>
               <th>QA</th>
+              <th>Sentiment</th>
+              <th>Compliance</th>
             </tr>
           </thead>
           <tbody>
@@ -106,7 +141,15 @@ export function CallsScreen({ onSelect }: CallsScreenProps) {
                   <span className={`calls-stage calls-${stageTone(c.stage)}`}>{c.stage}</span>
                 </td>
                 <td>{c.speakerCount ?? '—'}</td>
-                <td>{c.overall != null ? `${Math.round(c.overall)}%` : '—'}</td>
+                <td>
+                  {c.overall != null ? (
+                    `${Math.round(c.overall)}%`
+                  ) : (
+                    <span className="calls-none">—</span>
+                  )}
+                </td>
+                <td>{sentimentCell(c.sentiment)}</td>
+                <td>{complianceCell(c.compliancePassed, c.blockingFindings)}</td>
               </tr>
             ))}
           </tbody>

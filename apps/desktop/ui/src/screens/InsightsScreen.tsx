@@ -9,19 +9,37 @@
  * The patterns section is phrased carefully. These are associations found by
  * comparing groups, not causes, and the panel shows both group sizes so the
  * reader can judge the finding rather than take the ratio on trust.
+ *
+ * Sentiment is shown as a signed mean and a share of unhappy calls, never as a
+ * ratio. It runs −1..1, so "2x lower sentiment" would be published for two
+ * groups sitting on opposite sides of neutral — which is why `ca-insights`
+ * excludes it from the pattern finder in the first place.
  */
 
 import { useEffect, useState } from 'react'
 import {
   getAgentHealth,
   getCorpusReport,
+  getRiskRegister,
   type AgentHealth,
   type CorpusReport,
+  type FindingCount,
 } from '../api'
 import './InsightsScreen.css'
 
 function pct(v: number | null | undefined): string {
   return v == null ? '—' : `${Math.round(v * 100)}%`
+}
+
+/** A signed mean, so a negative corpus does not read as a positive one. */
+function signed(v: number | null | undefined): string {
+  if (v == null) return '—'
+  return `${v > 0 ? '+' : v < 0 ? '−' : ''}${Math.abs(v).toFixed(2)}`
+}
+
+function sentimentTone(v: number | null | undefined): string {
+  if (v == null) return ''
+  return v <= -0.2 ? ' in-bad' : v >= 0.2 ? ' in-good' : ''
 }
 
 /**
@@ -39,13 +57,15 @@ function isGood(outcome: string, lift: number): boolean {
 export function InsightsScreen() {
   const [report, setReport] = useState<CorpusReport | null>(null)
   const [health, setHealth] = useState<AgentHealth[]>([])
+  const [register, setRegister] = useState<FindingCount[]>([])
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
-    Promise.all([getCorpusReport(), getAgentHealth()])
-      .then(([r, h]) => {
+    Promise.all([getCorpusReport(), getAgentHealth(), getRiskRegister()])
+      .then(([r, h, reg]) => {
         setReport(r)
         setHealth(h)
+        setRegister(reg)
       })
       .catch((e: unknown) => setError(String(e)))
   }, [])
@@ -78,6 +98,32 @@ export function InsightsScreen() {
               </span>
             </div>
             <div className="in-tile">
+              <span className="in-tile-label">Mean sentiment</span>
+              <span className={`in-tile-value${sentimentTone(report.meanSentiment)}`}>
+                {signed(report.meanSentiment)}
+              </span>
+              {report.negativeShare != null && (
+                <span className="in-tile-sub">
+                  {pct(report.negativeShare)} of scored calls left unhappy
+                </span>
+              )}
+            </div>
+            <div className="in-tile">
+              <span className="in-tile-label">Compliance pass rate</span>
+              <span
+                className={`in-tile-value${
+                  report.compliancePassRate != null && report.compliancePassRate < 1
+                    ? ' in-bad'
+                    : ''
+                }`}
+              >
+                {pct(report.compliancePassRate)}
+              </span>
+              {report.failingCalls > 0 && (
+                <span className="in-tile-sub">{report.failingCalls} calls failing</span>
+              )}
+            </div>
+            <div className="in-tile">
               <span className="in-tile-label">Escalation risk</span>
               <span className="in-tile-value">{pct(report.meanEscalationRisk)}</span>
             </div>
@@ -86,6 +132,30 @@ export function InsightsScreen() {
               <span className="in-tile-value">{pct(report.meanChurnRisk)}</span>
             </div>
           </div>
+
+          {register.length > 0 && (
+            <section className="in-card">
+              <h3>Risk register</h3>
+              <p className="in-hint">
+                Counted from the findings ledger, so it covers every agent that files
+                findings and survives an agent being re-run. Each rule is shown at the
+                worst severity it has ever been raised at, and blocking rules come
+                first — a critical on four calls outranks an advisory on forty.
+              </p>
+              <ul className="in-register">
+                {register.map((f) => (
+                  <li key={f.code} className={f.blocking ? 'in-blocking' : undefined}>
+                    <span className={`in-sev in-sev-${f.severity}`}>{f.severity}</span>
+                    <span className="in-register-title">{f.title || f.code}</span>
+                    <code className="in-register-code">{f.code}</code>
+                    <span className="in-counted-n">
+                      {f.calls} call{f.calls === 1 ? '' : 's'}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            </section>
+          )}
 
           {report.qaDistribution.length > 0 && (
             <section className="in-card">
@@ -152,6 +222,26 @@ export function InsightsScreen() {
                   {report.topTopics.map((t) => (
                     <li key={t.label}>
                       <span>{t.label}</span>
+                      <span className="in-counted-n">
+                        {t.calls} · {pct(t.share)}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              </section>
+            )}
+
+            {report.rootCauseCategories.length > 0 && (
+              <section className="in-card">
+                <h3>Root cause by category</h3>
+                <p className="in-hint">
+                  The five buckets the root-cause agent normalises to. Free-text causes
+                  differ on every call; these are what aggregate.
+                </p>
+                <ul className="in-counted">
+                  {report.rootCauseCategories.map((t) => (
+                    <li key={t.label}>
+                      <span className="in-cat">{t.label}</span>
                       <span className="in-counted-n">
                         {t.calls} · {pct(t.share)}
                       </span>

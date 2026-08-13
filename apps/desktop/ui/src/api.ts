@@ -26,6 +26,12 @@ export interface CallSummary {
   createdAt: string
   /** QA score 0..100, or null if the scorecard agent has not run. */
   overall: number | null
+  /** Whole-call customer sentiment −1..1, or null if that agent has not run. */
+  sentiment: number | null
+  /** Null means unassessed, which the list shows differently from a pass. */
+  compliancePassed: boolean | null
+  /** Findings against the call severe enough to fail it. */
+  blockingFindings: number
   speakerCount: number | null
 }
 
@@ -149,6 +155,100 @@ export interface Scorecard {
   summary: string
   rubricId: string
   rubricVersion: string
+}
+
+export type Severity = 'info' | 'low' | 'medium' | 'high' | 'critical'
+
+/**
+ * One labelled moment on the sentiment trajectory.
+ *
+ * `t` comes from a validated citation rather than from a model-invented clock,
+ * so seeking to it lands on the audio that produced the reading.
+ */
+export interface SentimentPoint {
+  t: number
+  /** −1 (very negative) .. 1 (very positive). */
+  score: number
+  label: string
+  speaker: 'agent' | 'customer' | 'overall'
+  citations: Citation[]
+}
+
+export interface SentimentReport {
+  callId: string
+  /** Whole-call customer sentiment, −1..1. */
+  overall: number
+  trajectory: SentimentPoint[]
+  summary: string
+}
+
+/**
+ * A compliance, risk or friction observation.
+ *
+ * The same shape whether it arrives inside a `ComplianceReport` payload or from
+ * the durable ledger via {@link getFindings} — the ledger adds `label` and
+ * `blocking`.
+ */
+export interface Finding {
+  id: string
+  callId: string
+  agent: string
+  /** Display name of the agent that raised it. Ledger reads only. */
+  label?: string
+  code: string
+  title: string
+  detail: string
+  severity: Severity
+  /** Whether this severity alone fails the call. Ledger reads only. */
+  blocking?: boolean
+  citations: Citation[]
+}
+
+export interface ComplianceReport {
+  callId: string
+  /** Recomputed from surviving findings, never taken from the model. */
+  passed: boolean
+  findings: Finding[]
+  summary: string
+}
+
+export interface RootCauseReport {
+  callId: string
+  primaryCause: string
+  /** billing | product | process | agent | other. */
+  category: string
+  confidence: number
+  contributingFactors: string[]
+  recommendedFix: string
+  citations: Citation[]
+  summary: string
+}
+
+export interface ActionItem {
+  title: string
+  detail: string
+  /** agent | supervisor | backoffice | customer | system. */
+  owner: string
+  priority: 'low' | 'medium' | 'high'
+  /** Free-text due hint from the conversation. May be empty. */
+  due: string
+  citations: Citation[]
+}
+
+export interface ActionItemsReport {
+  callId: string
+  items: ActionItem[]
+  summary: string
+}
+
+/** One rule, and how much of the corpus breaks it. */
+export interface FindingCount {
+  code: string
+  title: string
+  severity: Severity
+  /** Distinct calls, not rows. */
+  calls: number
+  blocking: boolean
 }
 
 /** What the backend resolved at launch — surfaced so a missing model warns clearly. */
@@ -323,9 +423,19 @@ export interface CorpusReport {
   qaDistribution: ScoreBucket[]
   meanEscalationRisk: number | null
   meanChurnRisk: number | null
+  /** Mean whole-call customer sentiment, −1..1. */
+  meanSentiment: number | null
+  /** Share of the calls *with* a sentiment score where the customer left unhappy. */
+  negativeShare: number | null
+  /** Share of the calls the compliance agent judged that it passed. */
+  compliancePassRate: number | null
+  /** Calls with at least one finding severe enough to fail them. */
+  failingCalls: number
   topTopics: Counted[]
   complianceIssues: Counted[]
   topIssues: Counted[]
+  /** Root causes rolled up into billing / product / process / agent / other. */
+  rootCauseCategories: Counted[]
   patterns: Pattern[]
 }
 
@@ -392,6 +502,18 @@ export const getAgentRuns = (callId: string): Promise<AgentRun[]> =>
   invoke('get_agent_runs', { callId })
 
 export const getAgentHealth = (): Promise<AgentHealth[]> => invoke('get_agent_health')
+
+/**
+ * The durable compliance ledger for one call, worst finding first.
+ *
+ * Read separately from the compliance agent's payload because the ledger
+ * outlives any one run of the agent and is what the risk register counts.
+ */
+export const getFindings = (callId: string): Promise<Finding[]> =>
+  invoke('get_findings', { callId })
+
+/** Which rules the corpus breaks, and how many calls break each. */
+export const getRiskRegister = (): Promise<FindingCount[]> => invoke('get_risk_register')
 
 /** Aggregate view across every analysed call. */
 export const getCorpusReport = (): Promise<CorpusReport> => invoke('get_corpus_report')

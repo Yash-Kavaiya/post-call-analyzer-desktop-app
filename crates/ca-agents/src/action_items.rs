@@ -115,7 +115,7 @@ impl ActionItemsAgent {
             "medium" => 1,
             _ => 2,
         };
-        items.sort_by(|a, b| rank(&a.priority).cmp(&rank(&b.priority)));
+        items.sort_by_key(|i| rank(&i.priority));
 
         Ok(ActionItemsReport {
             call_id: transcript.call_id.clone(),

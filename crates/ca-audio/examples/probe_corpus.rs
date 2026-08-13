@@ -2,7 +2,6 @@
 //! Usage: cargo run -p ca-audio --release --example probe_corpus -- <dir> [count]
 
 use ca_audio::{process_file, ProcessOptions};
-use std::io::Write;
 use std::path::PathBuf;
 use std::time::Instant;
 

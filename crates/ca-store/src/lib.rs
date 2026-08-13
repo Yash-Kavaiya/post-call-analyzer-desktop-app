@@ -6,11 +6,14 @@
 //! opening a file handle per call.
 
 pub mod corpus;
+pub mod findings;
 pub mod observability;
+pub mod payload;
 pub mod runs;
 pub mod schema;
 pub mod settings;
 
+pub use findings::{FindingCount, StoredFinding};
 pub use observability::{AgentHealth, AgentRun};
 pub use runs::{RunItem, RunSummary};
 
@@ -36,6 +39,14 @@ pub struct CallSummary {
     pub created_at: String,
     /// QA score, if the scorecard agent has run.
     pub overall: Option<f64>,
+    /// Whole-call customer sentiment, −1..=1, if the sentiment agent has run.
+    pub sentiment: Option<f64>,
+    /// The compliance verdict. `None` means the agent has not run, which is a
+    /// different thing from a pass, and the list shows it differently.
+    pub compliance_passed: Option<bool>,
+    /// Findings against the call severe enough to fail it. Read from the
+    /// findings ledger, so it covers any agent that files them.
+    pub blocking_findings: u32,
     pub speaker_count: Option<u32>,
 }
 
@@ -536,7 +547,11 @@ impl Store {
             )
             .optional()
             .map_err(|e| CaError::Storage(format!("load analysis: {e}")))?;
-        Ok(s.and_then(|s| serde_json::from_str(&s).ok()))
+        // Normalised on the way out: a row written before the report types were
+        // renamed to camelCase is on disk in snake_case, and a reader looking
+        // for `primaryCause` would find nothing and render an empty field.
+        Ok(s.and_then(|s| serde_json::from_str(&s).ok())
+            .map(crate::payload::normalise))
     }
 
     pub fn save_findings(&self, call_id: &CallId, findings: &[Finding]) -> Result<()> {
@@ -560,7 +575,7 @@ impl Store {
                     f.code,
                     f.title,
                     f.detail,
-                    format!("{:?}", f.severity).to_lowercase(),
+                    f.severity.as_str(),
                     serde_json::to_string(&f.citations).unwrap_or_else(|_| "[]".into()),
                 ],
             )
@@ -588,10 +603,29 @@ impl Store {
 
         let mut stmt = conn
             .prepare(
+                // The battery columns are read straight out of the stored
+                // payloads with json_extract rather than by deserialising eight
+                // reports per row: a page of 50 calls is drawn on every
+                // keystroke of the search box.
+                //
+                // Each is scoped to `error IS NULL` so a failed agent leaves the
+                // column blank instead of extracting from an error envelope.
                 "SELECT c.id, c.display_name, c.stage, c.duration_secs, c.created_at,
                         (SELECT json_extract(a.payload_json, '$.overall')
                            FROM analyses a
-                          WHERE a.call_id = c.id AND a.agent = 'qa_scorecard'),
+                          WHERE a.call_id = c.id AND a.agent = 'qa_scorecard'
+                            AND a.error IS NULL),
+                        (SELECT json_extract(a.payload_json, '$.overall')
+                           FROM analyses a
+                          WHERE a.call_id = c.id AND a.agent = 'sentiment'
+                            AND a.error IS NULL),
+                        (SELECT json_extract(a.payload_json, '$.passed')
+                           FROM analyses a
+                          WHERE a.call_id = c.id AND a.agent = 'compliance'
+                            AND a.error IS NULL),
+                        (SELECT count(*) FROM findings f
+                          WHERE f.call_id = c.id
+                            AND f.severity IN ('high', 'critical')),
                         (SELECT count(DISTINCT s.speaker_index)
                            FROM segments s WHERE s.call_id = c.id)
                  FROM calls c
@@ -610,7 +644,12 @@ impl Store {
                     duration_secs: r.get(3)?,
                     created_at: r.get(4)?,
                     overall: r.get(5)?,
-                    speaker_count: r.get::<_, Option<i64>>(6)?.map(|n| n as u32),
+                    sentiment: r.get(6)?,
+                    // SQLite has no boolean type; `json_extract` of a JSON true
+                    // arrives as the integer 1.
+                    compliance_passed: r.get(7)?,
+                    blocking_findings: r.get::<_, i64>(8)?.max(0) as u32,
+                    speaker_count: r.get::<_, Option<i64>>(9)?.map(|n| n as u32),
                 })
             })
             .map_err(|e| CaError::Storage(format!("query list: {e}")))?;
@@ -926,5 +965,142 @@ mod tests {
             .unwrap()
             .unwrap();
         assert_eq!(payload["overall"], 90.0, "second run should win");
+    }
+
+    /// Store one analysis for a call, with no accounting worth asserting on.
+    fn stash(
+        s: &Store,
+        id: &CallId,
+        agent: ca_core::analysis::AgentKind,
+        payload: serde_json::Value,
+        error: Option<&str>,
+    ) {
+        s.save_analysis(&Analysis {
+            id: ca_core::ids::AnalysisId::new(),
+            call_id: id.clone(),
+            agent,
+            payload,
+            provider: "p".into(),
+            model: "m".into(),
+            usage: ca_core::analysis::Usage::default(),
+            created_at: chrono::Utc::now(),
+            error: error.map(|e| e.to_string()),
+        })
+        .unwrap();
+    }
+
+    #[test]
+    fn the_call_list_carries_the_whole_batterys_verdict() {
+        // Triage happens on this list. Without sentiment and compliance on it,
+        // finding the calls worth listening to means opening them one at a time.
+        use ca_core::analysis::{AgentKind, Severity};
+        let s = Store::in_memory().unwrap();
+        let id = s.upsert_call(&call("k")).unwrap();
+
+        stash(
+            &s,
+            &id,
+            AgentKind::QaScorecard,
+            serde_json::json!({"overall": 72.5}),
+            None,
+        );
+        stash(
+            &s,
+            &id,
+            AgentKind::Sentiment,
+            serde_json::json!({"overall": -0.65}),
+            None,
+        );
+        stash(
+            &s,
+            &id,
+            AgentKind::Compliance,
+            serde_json::json!({"passed": false}),
+            None,
+        );
+        s.save_findings(
+            &id,
+            &[Finding {
+                id: ca_core::ids::FindingId::new(),
+                call_id: id.clone(),
+                agent: AgentKind::Compliance,
+                code: "PCI_PAN".into(),
+                title: "Card PAN requested".into(),
+                detail: "d".into(),
+                severity: Severity::Critical,
+                citations: vec![],
+            }],
+        )
+        .unwrap();
+
+        let row = &s.list_calls(0, 10, None).unwrap()[0];
+        assert_eq!(row.overall, Some(72.5));
+        assert_eq!(row.sentiment, Some(-0.65));
+        assert_eq!(row.compliance_passed, Some(false));
+        assert_eq!(row.blocking_findings, 1);
+    }
+
+    #[test]
+    fn an_agent_that_has_not_run_leaves_its_column_empty() {
+        // Blank and zero read very differently in a triage list: a sentiment of
+        // 0.0 is a neutral call, an absent one is an unassessed call.
+        let s = Store::in_memory().unwrap();
+        let id = s.upsert_call(&call("k")).unwrap();
+        let row = &s.list_calls(0, 10, None).unwrap()[0];
+        assert!(row.overall.is_none());
+        assert!(row.sentiment.is_none());
+        assert!(row.compliance_passed.is_none());
+        assert_eq!(row.blocking_findings, 0);
+        assert_eq!(row.id, id.as_str());
+    }
+
+    #[test]
+    fn a_failed_agent_leaves_its_column_empty_rather_than_extracting_from_the_error() {
+        // An error envelope is a payload too. Reading `$.passed` out of one
+        // would report the call as judged when nothing judged it.
+        use ca_core::analysis::AgentKind;
+        let s = Store::in_memory().unwrap();
+        let id = s.upsert_call(&call("k")).unwrap();
+        stash(
+            &s,
+            &id,
+            AgentKind::Compliance,
+            serde_json::json!({"error": "rate limited", "passed": true}),
+            Some("rate limited"),
+        );
+        stash(
+            &s,
+            &id,
+            AgentKind::Sentiment,
+            serde_json::json!({"error": "rate limited", "overall": 0.9}),
+            Some("rate limited"),
+        );
+
+        let row = &s.list_calls(0, 10, None).unwrap()[0];
+        assert!(
+            row.compliance_passed.is_none(),
+            "read a failed run's payload"
+        );
+        assert!(row.sentiment.is_none(), "read a failed run's payload");
+    }
+
+    #[test]
+    fn a_compliance_pass_arrives_as_true_not_as_the_integer_one() {
+        // SQLite has no boolean type and `json_extract` yields 0/1, so the
+        // column's type mapping is worth pinning down.
+        use ca_core::analysis::AgentKind;
+        let s = Store::in_memory().unwrap();
+        let id = s.upsert_call(&call("k")).unwrap();
+        stash(
+            &s,
+            &id,
+            AgentKind::Compliance,
+            serde_json::json!({"passed": true}),
+            None,
+        );
+        assert_eq!(
+            s.list_calls(0, 10, None).unwrap()[0].compliance_passed,
+            Some(true)
+        );
     }
 }

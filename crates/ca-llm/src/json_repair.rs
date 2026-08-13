@@ -13,7 +13,7 @@ pub fn extract_json(raw: &str) -> Option<&str> {
     if let Some(start) = s.find("```") {
         let after = &s[start + 3..];
         let after = after.strip_prefix("json").unwrap_or(after);
-        let after = after.trim_start_matches(|c: char| c == '\r' || c == '\n');
+        let after = after.trim_start_matches(['\r', '\n']);
         if let Some(end) = after.find("```") {
             let inner = after[..end].trim();
             if !inner.is_empty() {

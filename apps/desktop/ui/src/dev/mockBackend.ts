@@ -18,6 +18,8 @@ import type {
   AppSettings,
   CallDetail,
   CallSummary,
+  Finding,
+  FindingCount,
   ProviderInfo,
   RunItem,
   RunSummary,
@@ -138,21 +140,98 @@ const CALLS: CallSummary[] = [
     durationSecs: DURATION,
     createdAt: '2026-08-10T09:14:00Z',
     overall: 82.5,
+    sentiment: 0.42,
+    compliancePassed: true,
+    blockingFindings: 0,
     speakerCount: 2,
   },
   ...Array.from({ length: 11 }, (_, i) => {
     const stages = ['analyzed', 'redacted', 'diarized', 'transcribed', 'decoded', 'failed']
     const stage = stages[i % stages.length]
+    const analysed = stage === 'analyzed'
+    // Every column state a row can be in appears somewhere in this fixture:
+    // scored, unassessed, neutral, negative, passing and failing. A list where
+    // they all look the same cannot be checked by looking at it.
+    const failing = analysed && i % 3 === 0
     return {
       id: `call_demo_${i + 2}`,
       displayName: `inbound-2026-08-${String(9 - (i % 8)).padStart(2, '0')}-${1200 + i}.m4a`,
       stage,
       durationSecs: 96 + i * 37,
       createdAt: `2026-08-0${(i % 8) + 1}T11:0${i % 6}:00Z`,
-      overall: stage === 'analyzed' ? 61 + ((i * 7) % 34) : null,
+      overall: analysed ? 61 + ((i * 7) % 34) : null,
+      sentiment: analysed ? Math.round((0.55 - (i % 5) * 0.32) * 100) / 100 : null,
+      compliancePassed: analysed ? !failing : null,
+      blockingFindings: failing ? 1 + (i % 2) : 0,
       speakerCount: stage === 'failed' ? null : 2,
     } satisfies CallSummary
   }),
+]
+
+/**
+ * The durable ledger for the demo call.
+ *
+ * Deliberately holds one blocking and one advisory finding: the risk banner must
+ * be seen to show the first and ignore the second, which is the whole point of
+ * it being separate from the compliance panel.
+ */
+const FINDINGS: Finding[] = [
+  {
+    id: 'find_demo_1',
+    callId: 'call_demo_1',
+    agent: 'compliance',
+    label: 'Compliance & risk',
+    code: 'HOLD_NOT_TIMEBOXED',
+    title: 'Hold placed without an expected duration',
+    detail:
+      'The agent announced a hold at 1:01 without saying how long it would take. Policy requires an estimate before silence.',
+    severity: 'high',
+    blocking: true,
+    citations: [{ segmentId: 'seg_11', start: 61.5, end: 66.2, quote: 'brief hold' }],
+  },
+  {
+    id: 'find_demo_2',
+    callId: 'call_demo_1',
+    agent: 'compliance',
+    label: 'Compliance & risk',
+    code: 'NO_SATISFACTION_CHECK',
+    title: 'Closed without checking for anything further',
+    detail: 'The call ended on the reference number with no "anything else I can help with".',
+    severity: 'low',
+    blocking: false,
+    citations: [{ segmentId: 'seg_13', start: 86.2, end: 90, quote: 'quicker than I expected' }],
+  },
+]
+
+const RISK_REGISTER: FindingCount[] = [
+  {
+    code: 'PCI_PAN',
+    title: 'Full card number spoken aloud',
+    severity: 'critical',
+    calls: 4,
+    blocking: true,
+  },
+  {
+    code: 'HOLD_NOT_TIMEBOXED',
+    title: 'Hold placed without an expected duration',
+    severity: 'high',
+    calls: 31,
+    blocking: true,
+  },
+  {
+    code: 'MISSING_DISCLOSURE',
+    title: 'Company and agent not named at open',
+    severity: 'medium',
+    calls: 12,
+    blocking: false,
+  },
+  {
+    code: 'NO_SATISFACTION_CHECK',
+    title: 'Closed without checking for anything further',
+    severity: 'low',
+    calls: 47,
+    blocking: false,
+  },
 ]
 
 const SCORECARD: Scorecard = {
@@ -481,7 +560,112 @@ const AGENT_RUNS = [
     error: null, createdAt: '2026-08-11T09:00:00Z',
   },
   {
+    agent: 'sentiment', label: 'Sentiment',
+    payload: {
+      overall: 0.42,
+      summary:
+        'The customer opens annoyed about the duplicate charge and warms once the reversal is confirmed. Nothing on the call pushes them back down.',
+      // Deliberately crosses zero and ends higher than it starts: a trajectory
+      // that only descends never exercises the sign handling in the plot.
+      trajectory: [
+        { t: 8.4, score: -0.55, label: 'annoyed at duplicate charge', speaker: 'customer',
+          citations: [{ segmentId: 'seg_2', start: 8.4, end: 13, quote: 'charged twice' }] },
+        { t: 31.2, score: -0.1, label: 'waiting on the check', speaker: 'customer',
+          citations: [{ segmentId: 'seg_6', start: 31.2, end: 36, quote: 'how long will that take' }] },
+        { t: 61.5, score: 0.05, label: 'neutral through the hold', speaker: 'customer',
+          citations: [{ segmentId: 'seg_11', start: 61.5, end: 66.2, quote: 'brief hold' }] },
+        { t: 78, score: 0.62, label: 'relieved at the reversal', speaker: 'customer',
+          citations: [{ segmentId: 'seg_12', start: 78, end: 83, quote: 'that is a relief' }] },
+        { t: 86.2, score: 0.71, label: 'pleased at the close', speaker: 'customer',
+          citations: [{ segmentId: 'seg_13', start: 86.2, end: 90, quote: 'quicker than I expected' }] },
+      ],
+    },
+    provider: 'nvidia-nim', model: 'meta/llama-3.3-70b-instruct',
+    inputTokens: 2140, outputTokens: 210, costUsd: 0.0018, latencyMs: 2900,
+    error: null, createdAt: '2026-08-11T09:00:00Z',
+  },
+  {
     agent: 'compliance', label: 'Compliance & risk',
+    payload: {
+      passed: false,
+      summary:
+        'Identification and disclosure were correct. One hold was placed without an estimate, which fails the call.',
+      findings: FINDINGS,
+    },
+    provider: 'nvidia-nim', model: 'meta/llama-3.3-70b-instruct',
+    inputTokens: 2140, outputTokens: 176, costUsd: 0.0019, latencyMs: 3100,
+    error: null, createdAt: '2026-08-11T09:00:00Z',
+  },
+  {
+    agent: 'root_cause', label: 'Root cause & intent',
+    payload: {
+      primaryCause: 'A retried card authorisation was captured twice by the payment gateway.',
+      category: 'billing',
+      confidence: 0.78,
+      contributingFactors: [
+        'The checkout retried automatically after a gateway timeout.',
+        'No duplicate-capture check runs before settlement.',
+        'The customer had no way to see the second charge as pending.',
+      ],
+      recommendedFix:
+        'Add an idempotency key to the capture call so a retried authorisation cannot settle twice.',
+      summary:
+        'This is a payments-integration defect, not an agent error. The same retry path will produce the same call again.',
+      citations: [{ segmentId: 'seg_2', start: 8.4, end: 13, quote: 'charged twice' }],
+    },
+    provider: 'nvidia-nim', model: 'meta/llama-3.3-70b-instruct',
+    inputTokens: 2140, outputTokens: 205, costUsd: 0.002, latencyMs: 3300,
+    error: null, createdAt: '2026-08-11T09:00:00Z',
+  },
+  {
+    agent: 'action_items', label: 'Action items',
+    payload: {
+      summary: 'Three follow-ups, one of them owed to the customer.',
+      items: [
+        {
+          title: 'Confirm the reversal has settled',
+          detail: 'Check RV-88214 has cleared and email the customer confirmation.',
+          owner: 'backoffice', priority: 'high', due: 'within 3 working days',
+          citations: [{ segmentId: 'seg_10', start: 54, end: 61.2, quote: 'reference RV-88214' }],
+        },
+        {
+          title: 'Raise a gateway ticket for the duplicate capture',
+          detail: 'The retry path settled twice; payments engineering needs the authorisation ids.',
+          owner: 'supervisor', priority: 'medium', due: '',
+          citations: [{ segmentId: 'seg_2', start: 8.4, end: 13, quote: 'charged twice' }],
+        },
+        {
+          title: 'Coach on time-boxing holds',
+          detail: 'Cover the hold at 1:01 in the next one-to-one.',
+          owner: 'supervisor', priority: 'low', due: 'next 1:1',
+          citations: [{ segmentId: 'seg_11', start: 61.5, end: 66.2, quote: 'brief hold' }],
+        },
+      ],
+    },
+    provider: 'nvidia-nim', model: 'meta/llama-3.3-70b-instruct',
+    inputTokens: 2140, outputTokens: 260, costUsd: 0.0024, latencyMs: 3600,
+    error: null, createdAt: '2026-08-11T09:00:00Z',
+  },
+  {
+    agent: 'qa_scorecard', label: 'QA scorecard',
+    payload: SCORECARD,
+    provider: 'nvidia-nim', model: 'meta/llama-3.3-70b-instruct',
+    inputTokens: 2140, outputTokens: 420, costUsd: 0.0031, latencyMs: 5200,
+    error: null, createdAt: '2026-08-11T09:00:00Z',
+  },
+  // Every real agent above renders through its own formatter. The two below are
+  // the fallbacks, which no combination of the eight can produce: an agent this
+  // build has no renderer for, and an agent that failed. Both states are easy to
+  // ship broken precisely because a healthy fixture never shows them.
+  {
+    agent: 'rag_index', label: 'RAG index',
+    payload: { indexed: true, chunks: 14, embeddingModel: 'nvidia/nv-embedqa-e5-v5' },
+    provider: 'nvidia-nim', model: 'nvidia/nv-embedqa-e5-v5',
+    inputTokens: 2140, outputTokens: 0, costUsd: 0.0002, latencyMs: 900,
+    error: null, createdAt: '2026-08-11T09:00:00Z',
+  },
+  {
+    agent: 'crm_sync', label: 'CRM sync',
     payload: null,
     provider: 'nvidia-nim', model: 'meta/llama-3.3-70b-instruct',
     inputTokens: 0, outputTokens: 0, costUsd: null, latencyMs: 180000,
@@ -627,6 +811,10 @@ async function dispatch(cmd: string, args: Record<string, unknown>): Promise<unk
         ],
         meanEscalationRisk: 0.083,
         meanChurnRisk: 0.041,
+        meanSentiment: 0.21,
+        negativeShare: 0.187,
+        compliancePassRate: 0.864,
+        failingCalls: 29,
         topTopics: [
           { label: 'payment', calls: 96, share: 0.449 },
           { label: 'refund', calls: 61, share: 0.285 },
@@ -641,6 +829,13 @@ async function dispatch(cmd: string, args: Record<string, unknown>): Promise<unk
           { label: 'Payment failure', calls: 66, share: 0.308 },
           { label: 'Refund delay', calls: 30, share: 0.140 },
         ],
+        rootCauseCategories: [
+          { label: 'billing', calls: 98, share: 0.458 },
+          { label: 'process', calls: 54, share: 0.252 },
+          { label: 'product', calls: 38, share: 0.178 },
+          { label: 'agent', calls: 15, share: 0.070 },
+          { label: 'other', calls: 9, share: 0.042 },
+        ],
         patterns: [
           { term: 'refund', outcome: 'escalation risk', withCalls: 61, withoutCalls: 153,
             withMean: 0.19, withoutMean: 0.07, lift: 2.7 },
@@ -651,6 +846,12 @@ async function dispatch(cmd: string, args: Record<string, unknown>): Promise<unk
 
     case 'get_agent_runs':
       return AGENT_RUNS
+    case 'get_findings': {
+      const { callId } = args as { callId: string }
+      return callId === 'call_demo_1' ? FINDINGS : []
+    }
+    case 'get_risk_register':
+      return RISK_REGISTER
     case 'get_agent_health':
       return AGENT_RUNS.map((r) => ({
         agent: r.agent,

@@ -150,7 +150,7 @@ mod tests {
     fn dominant_freq(signal: &[f32], rate: u32) -> f64 {
         let crossings = signal
             .windows(2)
-            .filter(|w| (w[0] <= 0.0 && w[1] > 0.0))
+            .filter(|w| w[0] <= 0.0 && w[1] > 0.0)
             .count();
         crossings as f64 / (signal.len() as f64 / rate as f64)
     }

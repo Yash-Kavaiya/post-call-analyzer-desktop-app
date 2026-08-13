@@ -1,9 +1,10 @@
 /**
- * One call: waveform, synced transcript, and its QA scorecard.
+ * One call: waveform, synced transcript, and everything the agent battery found.
  *
- * The three panels share a single playhead. Clicking a transcript word, a
- * waveform position, or a scorecard citation all seek the same audio element —
- * that shared clock is what makes a citation checkable rather than decorative.
+ * Every panel shares a single playhead. Clicking a transcript word, a waveform
+ * position, a sentiment moment, a compliance finding or a scorecard citation all
+ * seek the same audio element — that shared clock is what makes a citation
+ * checkable rather than decorative.
  */
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
@@ -11,6 +12,7 @@ import { TransportControls, WaveformTimeline, useAudioPlayer } from '../componen
 import { TranscriptView } from '../components/transcript/TranscriptView'
 import { ConversationPanel } from '../components/metrics/ConversationPanel'
 import { AgentResults } from '../components/agents/AgentResults'
+import { RiskBanner } from '../components/agents/RiskBanner'
 import { CallCopilot } from '../components/copilot/CallCopilot'
 import {
   formatDuration,
@@ -177,6 +179,13 @@ export function CallDetailScreen({ callId, onBack }: CallDetailScreenProps) {
         )
       )}
       {player.error && <p className="cd-note cd-error">Playback error: {player.error}</p>}
+
+      {/* Above the waveform, not with the agent panels: a critical finding is
+          the thing to see before deciding whether to listen to the call at all.
+          Renders nothing when there is nothing blocking. */}
+      {!unprocessed && (
+        <RiskBanner callId={callId} onSeek={handleSeek} refreshToken={reload} />
+      )}
 
       <section className="cd-waveform">
         <WaveformTimeline

@@ -654,6 +654,26 @@ fn get_agent_runs(
     state.store.agent_runs(&CallId::from(call_id)).map_err(err)
 }
 
+/// The compliance ledger for one call, worst finding first.
+///
+/// Separate from `get_agent_runs` even though the compliance agent's payload
+/// carries the same list, because the ledger is the durable record: it survives
+/// the agent being re-run under a different model, and it is what the corpus
+/// risk register is counted from.
+#[tauri::command]
+fn get_findings(
+    state: State<'_, AppState>,
+    call_id: String,
+) -> CmdResult<Vec<ca_store::StoredFinding>> {
+    state.store.findings(&CallId::from(call_id)).map_err(err)
+}
+
+/// Which rules the corpus breaks, and how many calls break each.
+#[tauri::command]
+fn get_risk_register(state: State<'_, AppState>) -> CmdResult<Vec<ca_store::FindingCount>> {
+    state.store.findings_summary(20).map_err(err)
+}
+
 /// Aggregate view across every analysed call.
 ///
 /// Arithmetic over facts the agents already extracted, not a model summarising
@@ -838,6 +858,8 @@ pub fn run() {
             get_agent_runs,
             get_agent_health,
             get_corpus_report,
+            get_findings,
+            get_risk_register,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

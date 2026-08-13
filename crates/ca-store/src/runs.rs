@@ -224,7 +224,7 @@ impl Store {
 
     pub fn run_of(&self, run: &JobId) -> Result<Option<RunSummary>> {
         Ok(self
-            .list_runs(0, usize::MAX.min(10_000))?
+            .list_runs(0, 10_000)?
             .into_iter()
             .find(|r| r.id == run.as_str()))
     }

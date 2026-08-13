@@ -42,14 +42,23 @@
 - 🖥️ **Windows Desktop App** — Tauri 2 + React, native feel
 - 🔐 **Credential Manager** — API keys stored securely, never exposed to the UI
 
-### Phase 2 — Multi-Agent Battery 🚧
+### Phase 2 — Multi-Agent Battery ✅
 
+Eight agents run over every call, each producing a citable, structured result.
 See [docs/PHASE2_AGENTS.md](docs/PHASE2_AGENTS.md) for details.
 
-- QA scoring
-- Sentiment analysis
-- Compliance checking
-- Root cause analysis
+- 📋 **QA scorecard** — weighted rubric, scored locally rather than trusted from the model
+- 🎭 **Sentiment** — signed whole-call score plus a clickable trajectory
+- ⚖️ **Compliance** — findings with severity; high or critical fails the call
+- 🔍 **Root cause** — normalised category, contributing factors, recommended fix
+- ✅ **Action items** — owner, priority and due, evidence required
+- 🎓 **Coaching** — strengths and improvements, each with a recommendation
+- 💬 **Customer experience** — effort, frustration, escalation and churn estimates
+- 📝 **Executive summary** — the paragraph a supervisor reads instead of the call
+
+Every payload renders in Call Detail, sentiment and compliance are on the call
+list for triage, and the corpus view carries mean sentiment, compliance pass rate
+and a risk register drawn from the findings ledger.
 
 ---
 
@@ -201,7 +210,11 @@ Launch the Tauri desktop app to:
 - Ingest call recordings from various sources
 - View transcripts with speaker labels
 - Run PII redaction before sending to cloud LLMs
-- Browse scoring results on the dashboard
+- Read every agent's result against the call, with each claim seeking to the audio
+  that supports it
+- Triage the call list by sentiment and compliance outcome
+- Browse corpus insights: score distribution, root-cause categories, risk register
+  and per-agent spend
 
 ### Headless CLI
 
@@ -213,8 +226,11 @@ Launch the Tauri desktop app to:
 ./target/release/ca.exe --db "$APPDATA/com.callanalyzer.desktop/call-analyzer.db" \
   score --provider nvidia_nim --model meta/llama-3.1-8b-instruct --limit 1
 
-# Generate a report for a specific call
+# Digest every agent's result for a call, plus its findings ledger
 ./target/release/ca.exe --db "$APPDATA/com.callanalyzer.desktop/call-analyzer.db" report <call_id>
+
+# ...and the full payloads
+./target/release/ca.exe --db "$APPDATA/com.callanalyzer.desktop/call-analyzer.db" report <call_id> --json
 ```
 
 ---
@@ -222,7 +238,7 @@ Launch the Tauri desktop app to:
 ## Roadmap
 
 - [x] Phase 1: Foundations (transcription, diarization, PII, LLM scoring, dashboard)
-- [ ] Phase 2: Multi-agent battery (QA, sentiment, compliance, root cause)
+- [x] Phase 2: Multi-agent battery (QA, sentiment, compliance, root cause, action items, coaching, CX, exec summary)
 - [ ] Phase 3: Real-time streaming analysis
 - [ ] Phase 4: Multi-tenant & cloud deployment
 - [ ] Phase 5: Plugin system for custom agents

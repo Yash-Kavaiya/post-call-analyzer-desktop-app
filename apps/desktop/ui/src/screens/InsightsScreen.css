@@ -239,3 +239,89 @@
 .in-error {
   color: var(--error, #B3261E);
 }
+
+/* ---------------------------------------------------------------- battery */
+
+.in-tile-sub {
+  font-size: 11.5px;
+  line-height: 1.4;
+  color: var(--on-surface-variant);
+}
+
+.in-good {
+  color: var(--success, #146c2e);
+}
+
+.in-cat {
+  text-transform: capitalize;
+}
+
+/* --------------------------------------------------------- risk register */
+
+.in-register {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+/* Severity, rule, code, reach. The title takes the slack so a long rule name
+   wraps instead of pushing the call count out of the row. */
+.in-register li {
+  display: grid;
+  grid-template-columns: auto 1fr auto auto;
+  align-items: baseline;
+  gap: 10px;
+  padding: 5px 0;
+  font-size: 13px;
+  border-bottom: 1px solid var(--outline-variant, var(--outline));
+}
+
+.in-register li:last-child {
+  border-bottom: 0;
+}
+
+@media (max-width: 640px) {
+  .in-register li {
+    grid-template-columns: auto 1fr auto;
+  }
+
+  .in-register-code {
+    display: none;
+  }
+}
+
+.in-blocking .in-register-title {
+  font-weight: 600;
+}
+
+.in-sev {
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 10.5px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  background: var(--surface-container-highest);
+  color: var(--on-surface-variant);
+  white-space: nowrap;
+}
+
+.in-sev-critical,
+.in-sev-high {
+  background: var(--error-container);
+  color: var(--on-error-container);
+}
+
+.in-sev-medium {
+  background: var(--warning-container);
+  color: var(--on-warning-container);
+}
+
+.in-register-code {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--on-surface-variant);
+}

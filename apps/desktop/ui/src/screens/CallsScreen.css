@@ -30,3 +30,13 @@
 .calls-pager button:disabled { opacity: .4; cursor: default; }
 .calls-state { color: var(--on-surface-variant); padding: 20px 0; }
 .calls-error { color: var(--error, #B3261E); }
+
+/* Battery columns. A dash is deliberately dimmer than a value: scanning the
+   list for what has not been assessed is as common as scanning it for scores. */
+.calls-none { color: var(--on-surface-variant); opacity: .55; }
+.calls-sent { font-variant-numeric: tabular-nums; }
+.calls-sent-bad { color: var(--error, #B3261E); }
+.calls-sent-ok { color: var(--success, #1E8E3E); }
+.calls-sent-neutral { color: var(--on-surface-variant); }
+.calls-verdict { padding: 3px 9px; border-radius: 999px; font-size: 12px;
+  font-variant-numeric: tabular-nums; }
