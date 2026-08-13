@@ -12,6 +12,7 @@ pub mod payload;
 pub mod runs;
 pub mod schema;
 pub mod settings;
+pub mod timeline;
 
 pub use findings::{FindingCount, StoredFinding};
 pub use observability::{AgentHealth, AgentRun};
@@ -554,16 +555,32 @@ impl Store {
             .map(crate::payload::normalise))
     }
 
+    /// Replace one agent's findings for a call.
+    ///
+    /// Scoped by agent, not by call. Two agents now file findings against the
+    /// same call — the live rules during it and the compliance agent at
+    /// hang-up — and a blanket delete would mean whichever ran last silently
+    /// erased the other's work.
+    ///
+    /// The agent is taken from the findings themselves, so a caller cannot pass
+    /// a list belonging to one agent and clear another's. An empty list clears
+    /// nothing, because there is no agent to scope to; use
+    /// [`Store::clear_findings`] to say that deliberately.
     pub fn save_findings(&self, call_id: &CallId, findings: &[Finding]) -> Result<()> {
         let mut conn = self.lock()?;
         let tx = conn
             .transaction()
             .map_err(|e| CaError::Storage(format!("begin: {e}")))?;
-        tx.execute(
-            "DELETE FROM findings WHERE call_id = ?1",
-            [call_id.as_str()],
-        )
-        .map_err(|e| CaError::Storage(format!("clear findings: {e}")))?;
+        let mut agents: Vec<&str> = findings.iter().map(|f| f.agent.as_str()).collect();
+        agents.sort_unstable();
+        agents.dedup();
+        for agent in agents {
+            tx.execute(
+                "DELETE FROM findings WHERE call_id = ?1 AND agent = ?2",
+                params![call_id.as_str(), agent],
+            )
+            .map_err(|e| CaError::Storage(format!("clear findings: {e}")))?;
+        }
         for f in findings {
             tx.execute(
                 "INSERT INTO findings (id, call_id, agent, code, title, detail, severity, citations_json)
@@ -583,6 +600,21 @@ impl Store {
         }
         tx.commit()
             .map_err(|e| CaError::Storage(format!("commit: {e}")))?;
+        Ok(())
+    }
+
+    /// Drop one agent's findings for a call, saying so explicitly.
+    ///
+    /// Needed because `save_findings(&[])` cannot know which agent it was meant
+    /// to clear. A re-run that legitimately finds nothing has to be able to
+    /// remove what the previous run found.
+    pub fn clear_findings(&self, call_id: &CallId, agent: ca_core::AgentKind) -> Result<()> {
+        let conn = self.lock()?;
+        conn.execute(
+            "DELETE FROM findings WHERE call_id = ?1 AND agent = ?2",
+            params![call_id.as_str(), agent.as_str()],
+        )
+        .map_err(|e| CaError::Storage(format!("clear findings: {e}")))?;
         Ok(())
     }
 

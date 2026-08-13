@@ -356,6 +356,79 @@ mod tests {
     }
 
     #[test]
+    fn saving_one_agents_findings_leaves_anothers_alone() {
+        // The live rules file findings during the call; the compliance agent
+        // files at hang-up. A delete scoped to the call rather than the agent
+        // meant the battery silently erased every live alert the moment it ran.
+        let (s, id) = store_with_call("a");
+        let mut live = finding(&id, "LIVE_HOLD", Severity::High);
+        live.agent = AgentKind::Rules;
+        s.save_findings(&id, &[live]).unwrap();
+        s.save_findings(&id, &[finding(&id, "COMP", Severity::Low)])
+            .unwrap();
+
+        let codes: Vec<String> = s
+            .findings(&id)
+            .unwrap()
+            .into_iter()
+            .map(|f| f.code)
+            .collect();
+        assert!(
+            codes.contains(&"LIVE_HOLD".to_string()),
+            "the rules findings were wiped: {codes:?}"
+        );
+        assert!(codes.contains(&"COMP".to_string()));
+    }
+
+    #[test]
+    fn re_running_one_agent_still_replaces_only_its_own() {
+        let (s, id) = store_with_call("a");
+        let mut first = finding(&id, "OLD", Severity::High);
+        first.agent = AgentKind::Rules;
+        s.save_findings(&id, &[first]).unwrap();
+        s.save_findings(&id, &[finding(&id, "COMP", Severity::Low)])
+            .unwrap();
+
+        let mut second = finding(&id, "NEW", Severity::Low);
+        second.agent = AgentKind::Rules;
+        s.save_findings(&id, &[second]).unwrap();
+
+        let codes: Vec<String> = s
+            .findings(&id)
+            .unwrap()
+            .into_iter()
+            .map(|f| f.code)
+            .collect();
+        assert!(!codes.contains(&"OLD".to_string()), "stale rule survived");
+        assert!(codes.contains(&"NEW".to_string()));
+        assert!(codes.contains(&"COMP".to_string()), "other agent was wiped");
+    }
+
+    #[test]
+    fn clearing_an_agent_is_something_you_have_to_ask_for() {
+        // `save_findings(&[])` cannot know which agent it was meant to clear,
+        // so a re-run that legitimately finds nothing needs its own call.
+        let (s, id) = store_with_call("a");
+        let mut live = finding(&id, "LIVE_HOLD", Severity::High);
+        live.agent = AgentKind::Rules;
+        s.save_findings(&id, &[live]).unwrap();
+        s.save_findings(&id, &[finding(&id, "COMP", Severity::Low)])
+            .unwrap();
+
+        s.save_findings(&id, &[]).unwrap();
+        assert_eq!(s.findings(&id).unwrap().len(), 2, "an empty list deleted");
+
+        s.clear_findings(&id, AgentKind::Rules).unwrap();
+        let codes: Vec<String> = s
+            .findings(&id)
+            .unwrap()
+            .into_iter()
+            .map(|f| f.code)
+            .collect();
+        assert_eq!(codes, vec!["COMP"]);
+    }
+
+    #[test]
     fn findings_cross_the_wire_as_camel_case() {
         let (s, id) = store_with_call("a");
         s.save_findings(&id, &[finding(&id, "PCI_PAN", Severity::Critical)])

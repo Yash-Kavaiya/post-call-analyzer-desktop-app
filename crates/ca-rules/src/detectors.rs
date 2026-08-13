@@ -85,26 +85,28 @@ pub fn pan_spoken(ctx: &RuleContext) -> Vec<Finding> {
         // Raw text on purpose: this rule exists to see the digits, and it never
         // leaves the machine.
         let hits = patterns::detect_all(&s.text, &[EntityKind::Card, EntityKind::Aadhaar]);
-        for (_, _, kind, _) in hits {
-            let (code, what) = match kind {
-                EntityKind::Card => ("PCI_PAN_SPOKEN", "A payment card number"),
-                _ => ("AADHAAR_SPOKEN", "An Aadhaar number"),
-            };
-            out.push(finding(
-                ctx,
-                code,
-                "Sensitive number spoken aloud",
-                format!(
-                    "{what} was said on the call by the {}. It is now in the recording.",
-                    role_word(s.role)
-                ),
-                Severity::Critical,
-                // The number itself is deliberately not quoted: the quote is
-                // shown in the UI and stored in the ledger.
-                vec![cite(s, None)],
-            ));
-            break; // one finding per segment is enough to act on
-        }
+        // One finding per segment is enough to act on. Three card numbers in
+        // one sentence is one problem, not three alerts.
+        let Some((_, _, kind, _)) = hits.into_iter().next() else {
+            continue;
+        };
+        let (code, what) = match kind {
+            EntityKind::Card => ("PCI_PAN_SPOKEN", "A payment card number"),
+            _ => ("AADHAAR_SPOKEN", "An Aadhaar number"),
+        };
+        out.push(finding(
+            ctx,
+            code,
+            "Sensitive number spoken aloud",
+            format!(
+                "{what} was said on the call by the {}. It is now in the recording.",
+                role_word(s.role)
+            ),
+            Severity::Critical,
+            // The number itself is deliberately not quoted: the quote is shown
+            // in the UI and stored in the ledger.
+            vec![cite(s, None)],
+        ));
     }
     out
 }

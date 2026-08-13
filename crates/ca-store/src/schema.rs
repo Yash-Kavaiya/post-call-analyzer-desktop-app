@@ -242,6 +242,22 @@ UPDATE calls
    AND media_path LIKE '%/%';
 "#,
     ),
+    (
+        "0005_channel_timeline",
+        r#"
+-- Who was speaking when, taken from the capture device rather than inferred.
+--
+-- A live call arrives on two devices: the microphone is the agent and the
+-- system loopback is the customer. That makes the speaker of every utterance
+-- known at capture time, which is something the acoustic diarizer can only
+-- approximate. Stored as one blob per call because the spans are always read
+-- together and never queried by time in SQL.
+CREATE TABLE channel_timelines (
+    call_id    TEXT PRIMARY KEY REFERENCES calls(id) ON DELETE CASCADE,
+    spans_json TEXT NOT NULL
+);
+"#,
+    ),
 ];
 
 pub fn open(path: &std::path::Path) -> Result<Connection> {
@@ -322,6 +338,7 @@ mod tests {
             "analyses",
             "findings",
             "jobs",
+            "channel_timelines",
         ] {
             let n: i64 = conn
                 .query_row(

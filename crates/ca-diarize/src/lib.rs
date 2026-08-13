@@ -496,3 +496,120 @@ mod tests {
         assert_eq!(l, vec![0, 1]);
     }
 }
+
+/// Assign speakers and roles from a capture channel timeline.
+///
+/// This is the one case where speaker identity is not an inference. On a live
+/// call each side arrives on its own device — channel 0 is the microphone, so
+/// it is the agent by construction, and channel 1 is the system loopback, so it
+/// is whoever the softphone is playing. Running the acoustic clusterer over
+/// audio whose speakers are already known would replace fact with a guess.
+///
+/// Assignment is by greatest overlap rather than by midpoint: a segment that
+/// straddles a turn boundary belongs to whoever is in it most, and a midpoint
+/// can land in the gap between two spans and match nothing.
+///
+/// Segments that overlap no span at all are left exactly as they are. That
+/// happens when transcription produces text over what the detector called
+/// silence, and inventing a speaker there would be the same guesswork this
+/// function exists to avoid.
+pub fn roles_from_timeline(
+    segments: &mut [ca_core::transcript::Segment],
+    timeline: &ca_core::transcript::ChannelTimeline,
+) {
+    use ca_core::transcript::SpeakerRole;
+
+    for seg in segments.iter_mut() {
+        let mut best: Option<(f64, u8)> = None;
+        for span in &timeline.spans {
+            let overlap = (seg.end.min(span.end) - seg.start.max(span.start)).max(0.0);
+            if overlap > 0.0 && best.map(|(o, _)| overlap > o).unwrap_or(true) {
+                best = Some((overlap, span.channel));
+            }
+        }
+        let Some((_, channel)) = best else { continue };
+        seg.speaker_index = channel;
+        seg.role = match channel {
+            0 => SpeakerRole::Agent,
+            1 => SpeakerRole::Customer,
+            _ => SpeakerRole::Unknown,
+        };
+    }
+}
+
+#[cfg(test)]
+mod timeline_tests {
+    use super::*;
+    use ca_core::ids::SegmentId;
+    use ca_core::transcript::{ChannelTimeline, Segment, SpeakerRole, SpeechSpan};
+
+    fn seg(id: &str, start: f64, end: f64) -> Segment {
+        Segment {
+            id: SegmentId::from(id),
+            speaker_index: 9,
+            role: SpeakerRole::Unknown,
+            start,
+            end,
+            text: "x".into(),
+            redacted_text: None,
+            words: vec![],
+            confidence: None,
+            language: None,
+        }
+    }
+
+    fn timeline() -> ChannelTimeline {
+        ChannelTimeline {
+            spans: vec![
+                SpeechSpan {
+                    channel: 0,
+                    start: 0.0,
+                    end: 2.0,
+                },
+                SpeechSpan {
+                    channel: 1,
+                    start: 2.5,
+                    end: 4.0,
+                },
+            ],
+        }
+    }
+
+    #[test]
+    fn roles_come_from_the_channel_that_carried_the_audio() {
+        // Channel 0 is the microphone, so it is the agent by construction.
+        // This is exact where the acoustic diarizer only ever guesses.
+        let mut segs = vec![seg("s1", 0.5, 1.5), seg("s2", 3.0, 3.8)];
+        roles_from_timeline(&mut segs, &timeline());
+
+        assert_eq!(segs[0].role, SpeakerRole::Agent);
+        assert_eq!(segs[0].speaker_index, 0);
+        assert_eq!(segs[1].role, SpeakerRole::Customer);
+        assert_eq!(segs[1].speaker_index, 1);
+    }
+
+    #[test]
+    fn a_segment_straddling_a_boundary_goes_to_whoever_is_in_it_most() {
+        // 0.3s of agent against 1.0s of customer.
+        let mut segs = vec![seg("s1", 1.7, 3.5)];
+        roles_from_timeline(&mut segs, &timeline());
+        assert_eq!(segs[0].role, SpeakerRole::Customer);
+    }
+
+    #[test]
+    fn a_segment_matching_no_span_is_left_alone() {
+        // Text over what the detector called silence. Inventing a speaker is
+        // the guesswork this function exists to avoid.
+        let mut segs = vec![seg("s1", 10.0, 11.0)];
+        roles_from_timeline(&mut segs, &timeline());
+        assert_eq!(segs[0].speaker_index, 9);
+        assert_eq!(segs[0].role, SpeakerRole::Unknown);
+    }
+
+    #[test]
+    fn an_empty_timeline_changes_nothing() {
+        let mut segs = vec![seg("s1", 0.5, 1.5)];
+        roles_from_timeline(&mut segs, &ChannelTimeline::default());
+        assert_eq!(segs[0].role, SpeakerRole::Unknown);
+    }
+}

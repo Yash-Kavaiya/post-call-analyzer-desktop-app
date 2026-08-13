@@ -452,7 +452,10 @@ mod tests {
     #[test]
     fn the_new_agent_kinds_round_trip() {
         assert_eq!(AgentKind::parse("rules"), Some(AgentKind::Rules));
-        assert_eq!(AgentKind::parse("live_monitor"), Some(AgentKind::LiveMonitor));
+        assert_eq!(
+            AgentKind::parse("live_monitor"),
+            Some(AgentKind::LiveMonitor)
+        );
         assert!(AgentKind::all().contains(&AgentKind::Rules));
         assert!(AgentKind::all().contains(&AgentKind::LiveMonitor));
     }
