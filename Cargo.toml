@@ -9,6 +9,7 @@ members = [
     "crates/ca-privacy",
     "crates/ca-agents",
     "crates/ca-rules",
+    "crates/ca-identity",
     "crates/ca-live",
     "crates/ca-config",
     "crates/ca-metrics",
@@ -35,6 +36,7 @@ ca-diarize  = { path = "crates/ca-diarize" }
 ca-privacy  = { path = "crates/ca-privacy" }
 ca-agents   = { path = "crates/ca-agents" }
 ca-rules    = { path = "crates/ca-rules" }
+ca-identity = { path = "crates/ca-identity" }
 ca-live     = { path = "crates/ca-live" }
 ca-config   = { path = "crates/ca-config" }
 ca-metrics  = { path = "crates/ca-metrics" }
