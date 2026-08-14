@@ -18,7 +18,9 @@ import App from './App.tsx'
 async function boot() {
   if (import.meta.env.DEV) {
     const { installMockBackend } = await import('./dev/mockBackend')
-    installMockBackend()
+    // Awaited: the bridge check is a network round trip, and rendering before
+    // it settles would send the first few commands to fixtures regardless.
+    await installMockBackend()
   }
 
   createRoot(document.getElementById('root')!).render(

@@ -27,6 +27,7 @@ import {
   type ProviderInfo,
   type ProviderTest,
 } from '../api'
+import { ResetPanel } from '../components/settings/ResetPanel'
 import './SettingsScreen.css'
 
 const KEY_SOURCE_LABEL: Record<KeySource, string> = {
@@ -317,6 +318,8 @@ export function SettingsScreen() {
           {test.message}
         </p>
       )}
+
+      <ResetPanel />
     </div>
   )
 }

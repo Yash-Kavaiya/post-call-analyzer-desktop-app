@@ -350,6 +350,7 @@ dependencies = [
  "ca-core",
  "ca-identity",
  "ca-ingest",
+ "ca-insights",
  "ca-llm",
  "ca-pipeline",
  "ca-store",

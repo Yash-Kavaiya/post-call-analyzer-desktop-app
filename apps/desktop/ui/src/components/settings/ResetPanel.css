@@ -1,0 +1,37 @@
+/* Visually separated from the rest of Settings: this is the only panel on the
+   screen that destroys data, and it should not read as one more preference. */
+.rp-root { margin-top: 26px; padding: 18px 20px;
+  border: 1px solid var(--error, #B3261E); border-radius: var(--md-sys-shape-corner-medium, 12px);
+  background: var(--surface-container-low); }
+.rp-root h3 { margin: 0 0 6px; font-size: 15px; font-weight: 500; color: var(--error, #B3261E); }
+.rp-intro { margin: 0 0 16px; font-size: 13px; color: var(--on-surface-variant); }
+
+.rp-scopes { display: flex; flex-direction: column; gap: 8px; margin-bottom: 14px; }
+.rp-scope { display: flex; gap: 10px; align-items: flex-start; padding: 10px 12px;
+  border: 1px solid var(--outline); border-radius: 10px; cursor: pointer; font-size: 13px; }
+.rp-scope-on { background: var(--surface-container-high); }
+.rp-scope input { margin-top: 3px; }
+.rp-scope strong { display: block; font-weight: 500; margin-bottom: 2px; }
+.rp-detail { display: block; color: var(--on-surface-variant); font-size: 12px; line-height: 1.45; }
+
+.rp-counts { font-size: 13px; margin: 0 0 12px; }
+.rp-backup { display: flex; gap: 9px; align-items: baseline; font-size: 13px; margin-bottom: 14px; }
+.rp-warn { color: var(--error, #B3261E); font-style: normal; }
+
+.rp-confirm { display: flex; gap: 12px; align-items: flex-end; flex-wrap: wrap; }
+.rp-confirm label { display: flex; flex-direction: column; gap: 5px; font-size: 12px;
+  color: var(--on-surface-variant); }
+.rp-confirm code { background: var(--surface-container-high); padding: 1px 5px; border-radius: 4px; }
+.rp-confirm input { padding: 8px 12px; border: 1px solid var(--outline); border-radius: 8px;
+  background: var(--surface-container-high); color: var(--on-surface); font: inherit; font-size: 13px; }
+.rp-confirm input:focus-visible { outline: 2px solid var(--error, #B3261E); outline-offset: 1px; }
+
+/* Stays disabled until the scope name is typed. A second "are you sure?"
+   button is a reflex to click; typing `all` is not. */
+.rp-danger { padding: 9px 17px; border: 1px solid var(--error, #B3261E); border-radius: 999px;
+  background: var(--error, #B3261E); color: #fff; font: inherit; font-size: 13px; cursor: pointer; }
+.rp-danger:disabled { opacity: .4; cursor: default; }
+
+.rp-ok { margin-top: 14px; font-size: 13px; color: var(--success, #1E8E3E); }
+.rp-ok code { font-size: 12px; word-break: break-all; }
+.rp-error { margin-top: 14px; font-size: 13px; color: var(--error, #B3261E); }

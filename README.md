@@ -59,6 +59,10 @@ every repeat-contact question needs. See
   as a dash rather than invented as a zero
 - 🔒 **Local-only** — identity is the same class of data as the redaction map;
   a test asserts a participant's name never reaches a provider
+- ♻️ **Reset** — clear scores, transcripts or the whole corpus, with the
+  database copied first (`ca reset`, or Settings → Reset data)
+- 🔌 **Real data in `npm run dev`** — `ca serve` bridges the browser to the
+  actual corpus, so the dev UI is not built on fixtures
 
 ### Phase 3 — Live Call Assist ✅
 

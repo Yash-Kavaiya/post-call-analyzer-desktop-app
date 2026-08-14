@@ -11,6 +11,8 @@ use ca_ingest::LocalFolderSource;
 use ca_llm::{ProviderKind, ProviderSpec};
 use ca_pipeline::{Analyzer, Pipeline, PipelineOptions, Progress};
 use ca_store::Store;
+mod serve;
+
 use clap::{Parser, Subcommand};
 use std::path::PathBuf;
 use std::sync::Arc;
@@ -125,6 +127,16 @@ enum Command {
         /// Do not copy the database first.
         #[arg(long, default_value_t = false)]
         no_backup: bool,
+    },
+    /// Serve the real corpus to the dev UI on loopback.
+    ///
+    /// `npm run dev` runs the UI in a browser, where there is no Tauri runtime.
+    /// With this running it shows real data from this database instead of
+    /// invented fixtures. Development only — the desktop app talks to the same
+    /// store in-process and never over a socket.
+    Serve {
+        #[arg(long, default_value_t = 8479)]
+        port: u16,
     },
     /// List the people on calls.
     People {
@@ -560,8 +572,9 @@ Nothing was deleted. Re-run with --yes to go ahead."
 
             if !no_backup {
                 let stamp = chrono::Local::now().format("%Y%m%d-%H%M%S").to_string();
-                match ca_store::backup_db(&db_path, &stamp) {
-                    Ok(path) => println!("backup: {}", path.display()),
+                match store.backup(&stamp) {
+                    Ok(Some(path)) => println!("backup: {}", path.display()),
+                    Ok(None) => println!("in-memory corpus — nothing to back up"),
                     Err(e) => {
                         // Refuse rather than proceed: an unbacked-up reset is a
                         // different, far riskier operation than the one asked for.
@@ -577,6 +590,10 @@ Nothing was deleted. Re-run with --yes to go ahead."
                 "removed {} calls, {} transcripts, {} analyses, {} findings, {} people",
                 report.calls, report.transcripts, report.analyses, report.findings, report.people,
             );
+        }
+        Command::Serve { port } => {
+            println!("serving {}", db_path.display());
+            serve::serve(store.clone(), port)?;
         }
         Command::People {
             kind,

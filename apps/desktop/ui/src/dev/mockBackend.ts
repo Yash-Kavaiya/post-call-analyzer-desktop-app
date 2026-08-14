@@ -31,6 +31,7 @@ import type {
   Startup,
 } from '../api'
 import type { PeakLevel, Segment, WaveformPeaks, Word } from '../components/waveform'
+import { bridgeAvailable, callBridge } from './bridge'
 
 // ---------------------------------------------------------------- generators
 
@@ -1188,16 +1189,31 @@ function personDetail(personId: string): PersonDetail {
 }
 
 /**
- * Install the fake IPC layer. Call before rendering; no-op outside dev or when
+ * Install the dev IPC layer. Call before rendering; no-op outside dev or when
  * a real Tauri runtime is present.
+ *
+ * Prefers the real corpus. If `ca serve` is running, commands go to the actual
+ * database and fixtures are used only for the commands the bridge does not
+ * implement — each of which announces itself in the console. Without it,
+ * everything is fixture data, which the banner says plainly.
  */
-export function installMockBackend() {
+export async function installMockBackend() {
   if (!import.meta.env.DEV) return
   const w = window as unknown as Record<string, unknown>
   if (w.__TAURI_INTERNALS__) return
 
+  const live = await bridgeAvailable()
+
+  const route = async (cmd: string, args: Record<string, unknown>): Promise<unknown> => {
+    if (live) {
+      const result = await callBridge(cmd, args)
+      if (result.handled) return result.value
+    }
+    return dispatch(cmd, args)
+  }
+
   w.__TAURI_INTERNALS__ = {
-    invoke: (cmd: string, args: Record<string, unknown> = {}) => dispatch(cmd, args ?? {}),
+    invoke: (cmd: string, args: Record<string, unknown> = {}) => route(cmd, args ?? {}),
     transformCallback: (cb: Callback) => {
       const id = nextCallbackId++
       callbacks.set(id, cb)
@@ -1219,5 +1235,37 @@ export function installMockBackend() {
   }
 
   // eslint-disable-next-line no-console
-  console.info('[dev] mock backend installed — data on screen is fixture data')
+  console.info(
+    live
+      ? '[dev] connected to the real corpus via `ca serve` — fixtures only where noted'
+      : '[dev] no `ca serve` on 127.0.0.1:8479 — everything on screen is fixture data',
+  )
+  banner(live)
+}
+
+/**
+ * Say which it is, on screen.
+ *
+ * A console line is easy to miss, and mistaking fixture data for a real corpus
+ * is exactly the error this is meant to prevent — including in a screenshot,
+ * where the console is not visible at all.
+ */
+function banner(live: boolean) {
+  const el = document.createElement('div')
+  el.textContent = live
+    ? 'dev · real corpus'
+    : 'dev · fixture data'
+  el.style.cssText = [
+    'position:fixed',
+    'bottom:8px',
+    'right:10px',
+    'z-index:2147483647',
+    'font:11px/1.4 ui-monospace,monospace',
+    'padding:3px 9px',
+    'border-radius:999px',
+    'pointer-events:none',
+    live ? 'background:rgba(30,142,62,.9)' : 'background:rgba(179,38,30,.9)',
+    'color:#fff',
+  ].join(';')
+  document.body.appendChild(el)
 }

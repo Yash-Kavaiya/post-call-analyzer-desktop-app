@@ -174,7 +174,20 @@ impl Store {
     }
 }
 
-/// Copy the database beside itself before something destructive.
+impl Store {
+    /// Copy this store's own database file before something destructive.
+    ///
+    /// Returns `None` for an in-memory store, which has no file to copy and
+    /// nothing to lose.
+    pub fn backup(&self, stamp: &str) -> Result<Option<std::path::PathBuf>> {
+        match self.path() {
+            Some(db) => backup_db(db, stamp).map(Some),
+            None => Ok(None),
+        }
+    }
+}
+
+/// Copy a database beside itself before something destructive.
 ///
 /// Returns the backup path. This is the only thing standing between a mistaken
 /// reset and a corpus that took hours to build, so it runs by default and has
@@ -270,6 +283,43 @@ mod tests {
         assert_eq!(preview.calls, 1);
         assert_eq!(preview.people, 1);
         assert_eq!(s.count_calls().unwrap(), 1, "preview deleted nothing");
+    }
+
+    /// The backup has to copy the database actually in use.
+    ///
+    /// This was wrong once: the reset command reached for `default_db_path()`,
+    /// so serving a corpus with `--db` backed up an unrelated file while
+    /// clearing the one that was open. The copy is the whole safety net; it
+    /// pointing at the wrong file is worse than having none, because it looks
+    /// like it worked.
+    #[test]
+    fn a_store_knows_which_file_to_back_up() {
+        let dir = std::env::temp_dir().join("ca-store-backup-path");
+        std::fs::create_dir_all(&dir).unwrap();
+        let db = dir.join("elsewhere.db");
+        let _ = std::fs::remove_file(&db);
+
+        let s = Store::open(&db).unwrap();
+        assert_eq!(s.path(), Some(db.as_path()));
+
+        let backup = s
+            .backup("test")
+            .unwrap()
+            .expect("a file-backed store backs up");
+        assert!(backup.exists());
+        assert!(
+            backup.starts_with(&dir),
+            "the backup landed beside the database in use, not beside the default one",
+        );
+
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn an_in_memory_store_has_nothing_to_back_up() {
+        let s = Store::in_memory().unwrap();
+        assert_eq!(s.path(), None);
+        assert!(s.backup("test").unwrap().is_none());
     }
 
     #[test]

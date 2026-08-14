@@ -286,6 +286,42 @@ pub struct CallPeople {
     pub contact_calls: Option<usize>,
 }
 
+/// A person, everything their calls add up to, and the calls themselves.
+///
+/// Composed here rather than in the command layer so the desktop app and the
+/// dev bridge cannot drift into showing different numbers for the same person.
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct PersonDetail {
+    pub summary: PersonSummary,
+    pub facts: ca_insights::PersonFacts,
+    pub qa_trend: Vec<ca_insights::MonthPoint>,
+    pub sentiment_trend: Vec<ca_insights::MonthPoint>,
+    /// `None` when no call carries a time — unanswerable, not zero.
+    pub repeat_contact_rate: Option<f32>,
+    /// Newest first.
+    pub calls: Vec<PersonCall>,
+}
+
+/// One row in a person's call list.
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct PersonCall {
+    pub call_id: String,
+    pub occurred_at: Option<String>,
+    pub qa_overall: Option<f32>,
+    pub sentiment: Option<f32>,
+    /// Position in this contact's run of calls, oldest first. `1` is a first
+    /// contact; anything above it is a repeat.
+    pub sequence: usize,
+}
+
+/// A contact who calls again inside a month is a repeat.
+///
+/// A lifetime definition would climb forever and read as a worsening trend
+/// when nothing had changed, so the window is fixed and stated.
+pub const REPEAT_WINDOW_DAYS: i64 = 30;
+
 /// The identity columns on `calls`, named so the row type stays readable.
 struct CallRow {
     agent_id: Option<String>,
@@ -295,6 +331,42 @@ struct CallRow {
 }
 
 impl Store {
+    /// Everything the person screen draws, in one call.
+    pub fn person_detail(&self, id: &PersonId) -> Result<Option<PersonDetail>> {
+        let Some(summary) = self
+            .list_people(None, None)?
+            .into_iter()
+            .find(|p| p.id == id.as_str())
+        else {
+            return Ok(None);
+        };
+
+        // Ordered oldest first by the query, which is what makes `sequence`
+        // simply the position in the list.
+        let refs = self.person_call_refs(id)?;
+        let mut calls: Vec<PersonCall> = refs
+            .iter()
+            .enumerate()
+            .map(|(i, c)| PersonCall {
+                call_id: c.call_id.clone(),
+                occurred_at: c.occurred_at.map(|t| t.to_rfc3339()),
+                qa_overall: c.qa_overall,
+                sentiment: c.sentiment,
+                sequence: i + 1,
+            })
+            .collect();
+        calls.reverse();
+
+        Ok(Some(PersonDetail {
+            facts: ca_insights::person_facts(id.as_str(), &refs),
+            qa_trend: ca_insights::monthly_trend(&refs, |c| c.qa_overall),
+            sentiment_trend: ca_insights::monthly_trend(&refs, |c| c.sentiment),
+            repeat_contact_rate: ca_insights::repeat_contact_rate(&refs, REPEAT_WINDOW_DAYS),
+            summary,
+            calls,
+        }))
+    }
+
     /// The participants on a call, for the detail screen.
     pub fn call_people(&self, call_id: &CallId) -> Result<CallPeople> {
         let conn = self.lock()?;

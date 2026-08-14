@@ -49,42 +49,6 @@ struct DiscoverResult {
     added: usize,
 }
 
-#[derive(Serialize)]
-#[serde(rename_all = "camelCase")]
-struct CallDetail {
-    id: String,
-    display_name: String,
-    duration_secs: Option<f64>,
-    features: Option<ca_core::audio::AcousticFeatures>,
-    segments: Vec<SegmentDto>,
-    speakers: Vec<ca_core::transcript::Speaker>,
-    engine: Option<String>,
-    model: Option<String>,
-    /// Absolute path, so the UI can play the original audio.
-    media_path: Option<String>,
-    /// Talk ratio, interruptions, silences, keywords and the rest.
-    ///
-    /// Computed on read from the transcript rather than stored: it is
-    /// arithmetic over timings, so recomputing costs microseconds and can never
-    /// go stale against a transcript that was re-run.
-    metrics: Option<ca_metrics::ConversationMetrics>,
-}
-
-#[derive(Serialize)]
-#[serde(rename_all = "camelCase")]
-struct SegmentDto {
-    id: String,
-    speaker_index: u8,
-    role: String,
-    start: f64,
-    end: f64,
-    text: String,
-    redacted_text: Option<String>,
-    words: Vec<ca_core::transcript::Word>,
-    confidence: Option<f32>,
-    language: Option<String>,
-}
-
 #[tauri::command]
 fn get_stats(state: State<'_, AppState>) -> CmdResult<Stats> {
     state.store.stats().map_err(err)
@@ -104,61 +68,8 @@ fn list_calls(
 }
 
 #[tauri::command]
-fn get_call(state: State<'_, AppState>, call_id: String) -> CmdResult<CallDetail> {
-    let id = CallId::from(call_id);
-    let transcript = state.store.load_transcript(&id).map_err(err)?;
-    let features = state.store.features(&id).map_err(err)?;
-    let media_path = state.store.media_path(&id).map_err(err)?;
-
-    let summaries = state.store.list_calls(0, 1_000_000, None).map_err(err)?;
-    let summary = summaries
-        .into_iter()
-        .find(|c| c.id == id.as_str())
-        .ok_or_else(|| format!("call {id} not found"))?;
-
-    let metrics = transcript.as_ref().map(ca_metrics::analyse);
-
-    let (segments, speakers, engine, model) = match transcript {
-        Some(t) => (
-            t.segments
-                .into_iter()
-                .map(|s| SegmentDto {
-                    id: s.id.as_str().to_string(),
-                    speaker_index: s.speaker_index,
-                    role: match s.role {
-                        ca_core::transcript::SpeakerRole::Agent => "agent",
-                        ca_core::transcript::SpeakerRole::Customer => "customer",
-                        ca_core::transcript::SpeakerRole::Unknown => "unknown",
-                    }
-                    .to_string(),
-                    start: s.start,
-                    end: s.end,
-                    text: s.text,
-                    redacted_text: s.redacted_text,
-                    words: s.words,
-                    confidence: s.confidence,
-                    language: s.language,
-                })
-                .collect(),
-            t.speakers,
-            Some(t.engine),
-            Some(t.model),
-        ),
-        None => (vec![], vec![], None, None),
-    };
-
-    Ok(CallDetail {
-        id: summary.id,
-        display_name: summary.display_name,
-        duration_secs: summary.duration_secs,
-        features,
-        segments,
-        speakers,
-        engine,
-        model,
-        media_path,
-        metrics,
-    })
+fn get_call(state: State<'_, AppState>, call_id: String) -> CmdResult<ca_store::CallDetail> {
+    state.store.call_detail(&CallId::from(call_id)).map_err(err)
 }
 
 #[tauri::command]
@@ -882,6 +793,8 @@ pub fn run() {
             people::attribute_calls,
             people::get_call_people,
             people::assign_call_person,
+            people::preview_reset,
+            people::reset_data,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

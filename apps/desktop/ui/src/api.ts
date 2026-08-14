@@ -815,6 +815,27 @@ export const getPerson = (personId: string): Promise<PersonDetail> =>
 export const attributeCalls = (dryRun: boolean, force: boolean): Promise<AttributeReport> =>
   invoke('attribute_calls', { dryRun, force })
 
+export interface ResetReport {
+  calls: number
+  transcripts: number
+  analyses: number
+  findings: number
+  people: number
+  runs: number
+}
+
+export interface ResetOutcome {
+  report: ResetReport
+  /** Where the copy went, so a mistaken reset can be recovered from a file. */
+  backupPath: string | null
+}
+
+export const previewReset = (scope: string): Promise<ResetReport> =>
+  invoke('preview_reset', { scope })
+
+export const resetData = (scope: string, backup: boolean): Promise<ResetOutcome> =>
+  invoke('reset_data', { scope, backup })
+
 export const getCallPeople = (callId: string): Promise<CallPeople> =>
   invoke('get_call_people', { callId })
 

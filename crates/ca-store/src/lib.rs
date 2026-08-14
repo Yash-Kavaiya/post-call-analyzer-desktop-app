@@ -7,6 +7,7 @@
 
 pub mod attribute;
 pub mod corpus;
+pub mod detail;
 pub mod findings;
 pub mod observability;
 pub mod payload;
@@ -18,9 +19,10 @@ pub mod settings;
 pub mod timeline;
 
 pub use attribute::{AttributeOptions, AttributeReport};
+pub use detail::{CallDetail, SegmentDto};
 pub use findings::{FindingCount, StoredFinding};
 pub use observability::{AgentHealth, AgentRun};
-pub use people::{CallPeople, PersonSummary};
+pub use people::{CallPeople, PersonCall, PersonDetail, PersonSummary};
 pub use reset::{backup_db, ResetReport, ResetScope};
 pub use runs::{RunItem, RunSummary};
 
@@ -125,19 +127,33 @@ fn dirs_home() -> Option<std::path::PathBuf> {
 
 pub struct Store {
     conn: Mutex<Connection>,
+    /// Where this corpus lives. `None` for an in-memory store.
+    path: Option<std::path::PathBuf>,
 }
 
 impl Store {
     pub fn open(path: &Path) -> Result<Self> {
         Ok(Self {
             conn: Mutex::new(schema::open(path)?),
+            path: Some(path.to_path_buf()),
         })
     }
 
     pub fn in_memory() -> Result<Self> {
         Ok(Self {
             conn: Mutex::new(schema::open_in_memory()?),
+            path: None,
         })
+    }
+
+    /// The file this store was opened from, if it has one.
+    ///
+    /// A backup has to copy the database actually in use. Reaching for
+    /// [`default_db_path`] instead silently copies the wrong file the moment
+    /// anything is opened with `--db`, which is exactly when a backup matters
+    /// most.
+    pub fn path(&self) -> Option<&Path> {
+        self.path.as_deref()
     }
 
     pub(crate) fn lock(&self) -> Result<std::sync::MutexGuard<'_, Connection>> {

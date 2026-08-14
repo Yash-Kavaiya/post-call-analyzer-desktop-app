@@ -9,34 +9,6 @@ use ca_store::{AttributeOptions, AttributeReport, CallPeople, PersonSummary, Sto
 use std::sync::Arc;
 use tauri::State;
 
-/// A person plus everything the detail screen draws, in one round trip.
-#[derive(serde::Serialize)]
-#[serde(rename_all = "camelCase")]
-pub struct PersonDetail {
-    pub summary: PersonSummary,
-    pub facts: ca_insights::PersonFacts,
-    pub qa_trend: Vec<ca_insights::MonthPoint>,
-    pub sentiment_trend: Vec<ca_insights::MonthPoint>,
-    /// `None` when no call carries a time — the question is unanswerable, not
-    /// zero.
-    pub repeat_contact_rate: Option<f32>,
-    /// This person's calls, newest first.
-    pub calls: Vec<PersonCall>,
-}
-
-/// One row in a person's call list.
-#[derive(serde::Serialize)]
-#[serde(rename_all = "camelCase")]
-pub struct PersonCall {
-    pub call_id: String,
-    pub occurred_at: Option<String>,
-    pub qa_overall: Option<f32>,
-    pub sentiment: Option<f32>,
-    /// Which call this is in the run of calls with this contact, oldest first.
-    /// `1` is a first contact; anything above it is a repeat.
-    pub sequence: usize,
-}
-
 #[tauri::command]
 pub fn list_people(
     store: State<'_, Arc<Store>>,
@@ -50,47 +22,16 @@ pub fn list_people(
 }
 
 #[tauri::command]
-pub fn get_person(store: State<'_, Arc<Store>>, person_id: String) -> Result<PersonDetail, String> {
+pub fn get_person(
+    store: State<'_, Arc<Store>>,
+    person_id: String,
+) -> Result<ca_store::PersonDetail, String> {
     let id = PersonId::from(person_id);
-    let summary = store
-        .list_people(None, None)
+    store
+        .person_detail(&id)
         .map_err(|e| e.to_string())?
-        .into_iter()
-        .find(|p| p.id == id.as_str())
-        .ok_or_else(|| format!("no such person: {}", id.as_str()))?;
-
-    // Ordered oldest first by the query, which is what makes `sequence` simply
-    // the position in the list.
-    let refs = store.person_call_refs(&id).map_err(|e| e.to_string())?;
-
-    let mut calls: Vec<PersonCall> = refs
-        .iter()
-        .enumerate()
-        .map(|(i, c)| PersonCall {
-            call_id: c.call_id.clone(),
-            occurred_at: c.occurred_at.map(|t| t.to_rfc3339()),
-            qa_overall: c.qa_overall,
-            sentiment: c.sentiment,
-            sequence: i + 1,
-        })
-        .collect();
-    calls.reverse();
-
-    Ok(PersonDetail {
-        facts: ca_insights::person_facts(id.as_str(), &refs),
-        qa_trend: ca_insights::monthly_trend(&refs, |c| c.qa_overall),
-        sentiment_trend: ca_insights::monthly_trend(&refs, |c| c.sentiment),
-        repeat_contact_rate: ca_insights::repeat_contact_rate(&refs, REPEAT_WINDOW_DAYS),
-        summary,
-        calls,
-    })
+        .ok_or_else(|| format!("no such person: {}", id.as_str()))
 }
-
-/// A contact who calls again inside a month is a repeat.
-///
-/// A lifetime definition would climb forever and read as a worsening trend when
-/// nothing had changed, so the window is fixed and stated rather than implied.
-const REPEAT_WINDOW_DAYS: i64 = 30;
 
 #[tauri::command]
 pub fn attribute_calls(
@@ -158,4 +99,62 @@ fn resolve(
         .upsert_person(kind, name, &handle)
         .map(Some)
         .map_err(|e| e.to_string())
+}
+
+// ------------------------------------------------------------------- reset
+
+/// What a reset would remove, without removing it.
+///
+/// The confirmation dialog is only meaningful if it can name real numbers, so
+/// the UI asks for this before offering the button.
+#[tauri::command]
+pub fn preview_reset(
+    store: State<'_, Arc<Store>>,
+    scope: String,
+) -> Result<ca_store::ResetReport, String> {
+    let scope =
+        ca_store::ResetScope::parse(&scope).ok_or_else(|| format!("unknown scope: {scope}"))?;
+    store.reset_preview(scope).map_err(|e| e.to_string())
+}
+
+/// Clear the corpus.
+///
+/// Copies the database first unless told not to. A failed backup aborts rather
+/// than proceeding — an unbacked-up reset is a materially riskier operation
+/// than the one the user agreed to.
+#[tauri::command]
+pub fn reset_data(
+    store: State<'_, Arc<Store>>,
+    scope: String,
+    backup: bool,
+) -> Result<ResetOutcome, String> {
+    let scope =
+        ca_store::ResetScope::parse(&scope).ok_or_else(|| format!("unknown scope: {scope}"))?;
+
+    let backup_path = if backup {
+        let stamp = chrono::Local::now().format("%Y%m%d-%H%M%S").to_string();
+        // The store's own file, not the default path: those differ whenever
+        // anything was opened with an explicit database, and copying the wrong
+        // one looks like it worked.
+        store
+            .backup(&stamp)
+            .map_err(|e| format!("nothing was deleted — the backup failed: {e}"))?
+            .map(|p| p.display().to_string())
+    } else {
+        None
+    };
+
+    let report = store.reset(scope).map_err(|e| e.to_string())?;
+    Ok(ResetOutcome {
+        report,
+        backup_path,
+    })
+}
+
+#[derive(serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ResetOutcome {
+    pub report: ca_store::ResetReport,
+    /// Where the copy went, so the user can find it if the reset was a mistake.
+    pub backup_path: Option<String>,
 }
