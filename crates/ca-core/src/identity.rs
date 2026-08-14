@@ -84,6 +84,99 @@ impl AttributionSource {
     }
 }
 
+/// What someone is allowed to see.
+///
+/// **This is a view filter, not a security boundary.** Everything runs against
+/// one local SQLite file that the signed-in operating-system user can read
+/// directly, so a role here narrows what the app *shows* — it cannot stop
+/// anyone with the file from reading all of it. Real enforcement needs the
+/// server, where the scope is applied before data leaves the host.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum AccessRole {
+    /// Sees only their own calls.
+    #[default]
+    Agent,
+    /// Sees every call handled by their team.
+    Supervisor,
+    /// Sees everything.
+    Admin,
+}
+
+impl AccessRole {
+    pub fn as_str(&self) -> &'static str {
+        match self {
+            AccessRole::Agent => "agent",
+            AccessRole::Supervisor => "supervisor",
+            AccessRole::Admin => "admin",
+        }
+    }
+
+    pub fn parse(s: &str) -> Option<Self> {
+        match s {
+            "agent" => Some(AccessRole::Agent),
+            "supervisor" => Some(AccessRole::Supervisor),
+            "admin" => Some(AccessRole::Admin),
+            _ => None,
+        }
+    }
+
+    /// Whether this role may change another person's role or team.
+    pub fn can_administer(&self) -> bool {
+        matches!(self, AccessRole::Admin)
+    }
+}
+
+/// Which calls a query may return.
+///
+/// Built from the configured operator rather than passed around ad hoc, so a
+/// new query cannot forget to apply it — the parameters are always present and
+/// a `None` means unrestricted rather than "filter omitted".
+#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ViewScope {
+    /// Restrict to calls handled by this person. `None` for no restriction.
+    pub person_id: Option<PersonId>,
+    /// Restrict to calls handled by anyone on this team.
+    pub team_id: Option<TeamId>,
+    pub role: AccessRole,
+}
+
+impl ViewScope {
+    /// Everything, unrestricted. What an admin gets, and what the CLI uses
+    /// unless asked otherwise.
+    pub fn all() -> Self {
+        Self {
+            person_id: None,
+            team_id: None,
+            role: AccessRole::Admin,
+        }
+    }
+
+    /// One agent's own calls.
+    pub fn own(person_id: PersonId) -> Self {
+        Self {
+            person_id: Some(person_id),
+            team_id: None,
+            role: AccessRole::Agent,
+        }
+    }
+
+    /// A team's calls.
+    pub fn team(team_id: TeamId) -> Self {
+        Self {
+            person_id: None,
+            team_id: Some(team_id),
+            role: AccessRole::Supervisor,
+        }
+    }
+
+    /// Whether this scope filters anything at all.
+    pub fn is_unrestricted(&self) -> bool {
+        self.person_id.is_none() && self.team_id.is_none()
+    }
+}
+
 /// Someone who appears on calls.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -95,6 +188,8 @@ pub struct Person {
     /// Normalised identity key. Unique per `(kind, handle)`.
     pub handle: String,
     pub team_id: Option<TeamId>,
+    /// Only meaningful for [`PersonKind::Agent`]; a contact has no role.
+    pub role: AccessRole,
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
 }
@@ -111,6 +206,26 @@ pub struct Team {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn role_round_trips_and_defaults_to_the_least_privileged() {
+        for r in [AccessRole::Agent, AccessRole::Supervisor, AccessRole::Admin] {
+            assert_eq!(AccessRole::parse(r.as_str()), Some(r));
+        }
+        assert_eq!(AccessRole::parse("root"), None);
+        // A parse failure or a missing column must not silently grant admin.
+        assert_eq!(AccessRole::default(), AccessRole::Agent);
+        assert!(!AccessRole::Agent.can_administer());
+        assert!(!AccessRole::Supervisor.can_administer());
+        assert!(AccessRole::Admin.can_administer());
+    }
+
+    #[test]
+    fn an_unrestricted_scope_is_distinguishable_from_a_narrow_one() {
+        assert!(ViewScope::all().is_unrestricted());
+        assert!(!ViewScope::own(PersonId::from("person_1")).is_unrestricted());
+        assert!(!ViewScope::team(TeamId::from("team_1")).is_unrestricted());
+    }
 
     #[test]
     fn person_kind_round_trips_through_its_string_form() {

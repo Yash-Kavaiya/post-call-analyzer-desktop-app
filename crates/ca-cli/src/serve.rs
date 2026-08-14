@@ -124,12 +124,50 @@ fn dispatch(store: &Store, cmd: &str, args: &Value) -> ca_core::error::Result<Op
     let n = |k: &str| args.get(k).and_then(Value::as_u64).unwrap_or(0) as usize;
     let b = |k: &str| args.get(k).and_then(Value::as_bool).unwrap_or(false);
 
+    // The same scope the desktop app resolves, so the dev UI shows what the
+    // configured operator would actually see rather than the whole corpus.
+    let scope = store.current_scope()?;
+
     let value = match cmd {
-        "get_stats" => json!(store.stats()?),
+        "get_stats" => json!(store.stats(&scope)?),
         "list_calls" => {
-            json!(store.list_calls(n("offset"), n("limit").max(1), s("search").as_deref())?)
+            json!(store.list_calls(
+                n("offset"),
+                n("limit").max(1),
+                s("search").as_deref(),
+                &scope
+            )?)
         }
-        "get_call" => json!(store.call_detail(&CallId::from(s("callId").unwrap_or_default()))?),
+        "get_call" => {
+            json!(store.call_detail(&CallId::from(s("callId").unwrap_or_default()), &scope)?)
+        }
+        "get_view_scope" => json!({
+            "role": scope.role.as_str(),
+            "handle": store.operator_handle()?,
+            "unrestricted": scope.is_unrestricted(),
+        }),
+        "set_operator" => {
+            store.set_operator(s("handle").as_deref())?;
+            Value::Null
+        }
+        "list_teams" => json!(store.list_teams()?),
+        "set_person_role" => {
+            let Some(role) = s("role")
+                .as_deref()
+                .and_then(ca_core::identity::AccessRole::parse)
+            else {
+                return Ok(None);
+            };
+            store.set_person_role(&PersonId::from(s("personId").unwrap_or_default()), role)?;
+            Value::Null
+        }
+        "set_person_team" => {
+            store.set_person_team(
+                &PersonId::from(s("personId").unwrap_or_default()),
+                s("team").as_deref(),
+            )?;
+            Value::Null
+        }
         "get_waveform" => json!(store.waveform(&CallId::from(s("callId").unwrap_or_default()))?),
         "get_scorecard" => json!(store.load_analysis(
             &CallId::from(s("callId").unwrap_or_default()),

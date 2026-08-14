@@ -26,6 +26,9 @@ pub struct PersonSummary {
     /// carries a time, which is different from having no calls.
     pub first_call: Option<String>,
     pub last_call: Option<String>,
+    /// `agent`, `supervisor` or `admin`. Meaningless for a contact.
+    pub role: String,
+    pub team: Option<String>,
 }
 
 impl Store {
@@ -68,7 +71,7 @@ impl Store {
     pub fn person(&self, id: &PersonId) -> Result<Option<Person>> {
         let conn = self.lock()?;
         conn.query_row(
-            "SELECT id, kind, display_name, handle, team_id, created_at, updated_at
+            "SELECT id, kind, display_name, handle, team_id, created_at, updated_at, role
                FROM people WHERE id = ?1",
             [id.as_str()],
             |r| {
@@ -76,12 +79,16 @@ impl Store {
                 let team: Option<String> = r.get(4)?;
                 let created: String = r.get(5)?;
                 let updated: String = r.get(6)?;
+                let role: String = r.get(7)?;
                 Ok(Person {
                     id: PersonId::from(r.get::<_, String>(0)?),
                     kind: PersonKind::parse(&kind).unwrap_or(PersonKind::Contact),
                     display_name: r.get(2)?,
                     handle: r.get(3)?,
                     team_id: team.map(TeamId::from),
+                    // An unreadable role reads as the narrowest one, never the
+                    // widest.
+                    role: ca_core::identity::AccessRole::parse(&role).unwrap_or_default(),
                     created_at: parse_time(&created),
                     updated_at: parse_time(&updated),
                 })
@@ -106,6 +113,8 @@ impl Store {
                 // A person may be on either side of a call, so every count
                 // matches on both columns rather than assuming a side.
                 "SELECT p.id, p.kind, p.display_name, p.handle,
+                        p.role,
+                        (SELECT t.name FROM teams t WHERE t.id = p.team_id),
                         (SELECT count(*) FROM calls c
                           WHERE c.agent_id = p.id OR c.contact_id = p.id),
                         (SELECT min(c.occurred_at) FROM calls c
@@ -115,7 +124,7 @@ impl Store {
                    FROM people p
                   WHERE (?1 = '' OR p.kind = ?1)
                     AND (?2 = '%%' OR p.display_name LIKE ?2 OR p.handle LIKE ?2)
-                  ORDER BY 5 DESC, p.display_name ASC",
+                  ORDER BY 7 DESC, p.display_name ASC",
             )
             .map_err(|e| CaError::Storage(format!("prepare people: {e}")))?;
 
@@ -126,9 +135,11 @@ impl Store {
                     kind: r.get(1)?,
                     display_name: r.get(2)?,
                     handle: r.get(3)?,
-                    calls: r.get::<_, i64>(4)?.max(0) as usize,
-                    first_call: r.get(5)?,
-                    last_call: r.get(6)?,
+                    role: r.get(4)?,
+                    team: r.get(5)?,
+                    calls: r.get::<_, i64>(6)?.max(0) as usize,
+                    first_call: r.get(7)?,
+                    last_call: r.get(8)?,
                 })
             })
             .map_err(|e| CaError::Storage(format!("query people: {e}")))?;

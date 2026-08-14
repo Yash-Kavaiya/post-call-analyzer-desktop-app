@@ -6,6 +6,7 @@
 //! claims — and means both frontends read the same call.
 
 use ca_core::error::{CaError, Result};
+use ca_core::identity::ViewScope;
 use ca_core::ids::CallId;
 use serde::{Deserialize, Serialize};
 
@@ -49,13 +50,17 @@ pub struct SegmentDto {
 
 impl Store {
     /// One call, with its transcript, metrics and media path.
-    pub fn call_detail(&self, id: &CallId) -> Result<CallDetail> {
+    ///
+    /// Scoped: a viewer who may not see this call gets the same `not found`
+    /// as one asking for an id that does not exist. Distinguishing the two
+    /// would confirm the call exists, which is the thing being withheld.
+    pub fn call_detail(&self, id: &CallId, scope: &ViewScope) -> Result<CallDetail> {
         let transcript = self.load_transcript(id)?;
         let features = self.features(id)?;
         let media_path = self.media_path(id)?;
 
         let summary = self
-            .list_calls(0, 1_000_000, None)?
+            .list_calls(0, 1_000_000, None, scope)?
             .into_iter()
             .find(|c| c.id == id.as_str())
             .ok_or_else(|| CaError::NotFound(format!("call {id} not found")))?;
@@ -118,7 +123,7 @@ mod tests {
             .upsert_call(&Call::new("k", "local", "untranscribed.m4a"))
             .unwrap();
 
-        let d = s.call_detail(&id).unwrap();
+        let d = s.call_detail(&id, &ViewScope::all()).unwrap();
         assert_eq!(d.display_name, "untranscribed.m4a");
         assert!(d.segments.is_empty());
         assert!(d.metrics.is_none(), "no transcript means no metrics");
@@ -128,7 +133,9 @@ mod tests {
     #[test]
     fn an_unknown_call_is_reported_as_missing_rather_than_returned_empty() {
         let s = Store::in_memory().unwrap();
-        let err = s.call_detail(&CallId::from("call_nope")).unwrap_err();
+        let err = s
+            .call_detail(&CallId::from("call_nope"), &ViewScope::all())
+            .unwrap_err();
         assert!(format!("{err}").contains("not found"), "got {err}");
     }
 }

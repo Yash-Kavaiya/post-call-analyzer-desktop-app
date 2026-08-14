@@ -25,6 +25,11 @@ struct Cli {
     #[arg(long, global = true)]
     db: Option<PathBuf>,
 
+    /// Act as this agent handle for this command only, without changing the
+    /// stored operator. Useful for checking what a colleague would see.
+    #[arg(long, global = true)]
+    r#as: Option<String>,
+
     #[command(subcommand)]
     command: Command,
 }
@@ -138,6 +143,23 @@ enum Command {
         #[arg(long, default_value_t = 8479)]
         port: u16,
     },
+    /// Show who this machine is signed in as, and what that lets them see.
+    Whoami,
+    /// Set who is using this machine. Omit the handle to clear it.
+    ///
+    /// This narrows what the app *shows*. It is not a security boundary while
+    /// everything runs against one local file — anyone who can read the
+    /// database can read all of it.
+    Operator { handle: Option<String> },
+    /// Give an agent a role: agent, supervisor or admin.
+    Role { handle: String, role: String },
+    /// Put an agent on a team. Omit the team to remove them from one.
+    Team {
+        handle: String,
+        team: Option<String>,
+    },
+    /// List teams and their membership.
+    Teams,
     /// List the people on calls.
     People {
         /// `agent` or `contact`. Both if omitted.
@@ -177,6 +199,13 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         std::fs::create_dir_all(parent).ok();
     }
     let store = Arc::new(Store::open(&db_path)?);
+
+    // `--as` answers "what would this person see?" without changing whose
+    // machine this is. Everything that reads calls goes through this one value.
+    let scope = match cli.r#as.as_deref() {
+        Some(handle) => store.scope_for_handle(handle)?,
+        None => store.current_scope()?,
+    };
 
     match cli.command {
         Command::Discover { folder, recursive } => {
@@ -510,13 +539,13 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         }
 
         Command::Stats => {
-            let total = store.count_calls()?;
-            let pending = store
-                .calls_below_stage(CallStage::Redacted, usize::MAX)?
-                .len();
+            let s = store.stats(&scope)?;
             let (input, output, cost) = store.total_usage()?;
-            println!("calls registered : {total}");
-            println!("calls outstanding: {pending}");
+            if !scope.is_unrestricted() {
+                println!("(scoped to {})", scope.role.as_str());
+            }
+            println!("calls registered : {}", s.total_calls);
+            println!("calls outstanding: {}", s.outstanding);
             println!("tokens           : {input} in / {output} out");
             println!("spend            : ${cost:.4}");
         }
@@ -590,6 +619,72 @@ Nothing was deleted. Re-run with --yes to go ahead."
                 "removed {} calls, {} transcripts, {} analyses, {} findings, {} people",
                 report.calls, report.transcripts, report.analyses, report.findings, report.people,
             );
+        }
+        Command::Whoami => {
+            let scope = store.current_scope()?;
+            let handle = store.operator_handle()?;
+            println!("operator : {}", handle.as_deref().unwrap_or("(not set)"));
+            println!("role     : {}", scope.role.as_str());
+            println!(
+                "sees     : {}",
+                if scope.is_unrestricted() {
+                    "every call".to_string()
+                } else if let Some(t) = &scope.team_id {
+                    let name = store
+                        .list_teams()?
+                        .into_iter()
+                        .find(|s| s.id == t.as_str())
+                        .map(|s| s.name)
+                        .unwrap_or_else(|| t.as_str().to_string());
+                    format!("calls handled by team `{name}`")
+                } else {
+                    "only their own calls".to_string()
+                }
+            );
+            println!("calls    : {}", store.stats(&scope)?.total_calls);
+        }
+        Command::Operator { handle } => {
+            store.set_operator(handle.as_deref())?;
+            match handle {
+                Some(h) => println!("operator set to {h}"),
+                None => println!("operator cleared — the app shows every call again"),
+            }
+        }
+        Command::Role { handle, role } => {
+            let Some(parsed) = ca_core::identity::AccessRole::parse(&role) else {
+                eprintln!("unknown role `{role}` — use agent, supervisor or admin");
+                std::process::exit(2);
+            };
+            let normalised = ca_identity::normalise_handle(&handle);
+            let id = store.upsert_person(
+                ca_core::identity::PersonKind::Agent,
+                handle.trim(),
+                &normalised,
+            )?;
+            store.set_person_role(&id, parsed)?;
+            println!("{handle} is now {}", parsed.as_str());
+        }
+        Command::Team { handle, team } => {
+            let normalised = ca_identity::normalise_handle(&handle);
+            let id = store.upsert_person(
+                ca_core::identity::PersonKind::Agent,
+                handle.trim(),
+                &normalised,
+            )?;
+            store.set_person_team(&id, team.as_deref())?;
+            match team {
+                Some(t) => println!("{handle} joined {t}"),
+                None => println!("{handle} left their team"),
+            }
+        }
+        Command::Teams => {
+            let teams = store.list_teams()?;
+            if teams.is_empty() {
+                println!("no teams yet — `ca team <handle> <team>` creates one");
+            }
+            for t in &teams {
+                println!("{:<28} {:>3} members", clip(&t.name, 28), t.members);
+            }
         }
         Command::Serve { port } => {
             println!("serving {}", db_path.display());

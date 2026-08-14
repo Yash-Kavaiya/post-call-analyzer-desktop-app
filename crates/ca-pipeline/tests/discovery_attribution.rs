@@ -65,7 +65,9 @@ async fn a_scanned_folder_arrives_already_attributed() {
         "the real call time came from the filename, not from ingest time"
     );
 
-    let calls = store.list_calls(0, 10, None).unwrap();
+    let calls = store
+        .list_calls(0, 10, None, &ca_core::identity::ViewScope::all())
+        .unwrap();
     for c in &calls {
         assert_eq!(
             store
@@ -99,7 +101,13 @@ async fn an_unrecognised_filename_still_ingests() {
         "no pattern matched, so nobody was invented"
     );
 
-    let id = ca_core::ids::CallId::from(store.list_calls(0, 1, None).unwrap()[0].id.clone());
+    let id = ca_core::ids::CallId::from(
+        store
+            .list_calls(0, 1, None, &ca_core::identity::ViewScope::all())
+            .unwrap()[0]
+            .id
+            .clone(),
+    );
     assert_eq!(
         store.call_attribution(&id).unwrap(),
         AttributionSource::None

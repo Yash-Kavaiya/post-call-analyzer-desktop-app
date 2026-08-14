@@ -15,6 +15,7 @@ pub mod people;
 pub mod reset;
 pub mod runs;
 pub mod schema;
+pub mod scope;
 pub mod settings;
 pub mod timeline;
 
@@ -25,6 +26,7 @@ pub use observability::{AgentHealth, AgentRun};
 pub use people::{CallPeople, PersonCall, PersonDetail, PersonSummary};
 pub use reset::{backup_db, ResetReport, ResetScope};
 pub use runs::{RunItem, RunSummary};
+pub use scope::{TeamSummary, OPERATOR_HANDLE_KEY};
 
 use ca_core::analysis::{Analysis, Finding};
 use ca_core::audio::{AcousticFeatures, AudioMeta, WaveformPeaks};
@@ -668,25 +670,31 @@ impl Store {
     // hydrated transcripts.
 
     /// One page of calls, newest first, optionally filtered by name.
+    /// A page of calls the viewer is allowed to see.
+    ///
+    /// The scope is a parameter rather than an internal lookup so a caller
+    /// cannot accidentally get an unscoped list by calling the wrong method —
+    /// there is only one method, and it always applies what it is given.
     pub fn list_calls(
         &self,
         offset: usize,
         limit: usize,
         search: Option<&str>,
+        scope: &ca_core::identity::ViewScope,
     ) -> Result<Vec<CallSummary>> {
         let conn = self.lock()?;
         let like = format!("%{}%", search.unwrap_or(""));
+        let (scope_person, scope_team) = scope::scope_params(scope);
 
-        let mut stmt = conn
-            .prepare(
-                // The battery columns are read straight out of the stored
-                // payloads with json_extract rather than by deserialising eight
-                // reports per row: a page of 50 calls is drawn on every
-                // keystroke of the search box.
-                //
-                // Each is scoped to `error IS NULL` so a failed agent leaves the
-                // column blank instead of extracting from an error envelope.
-                "SELECT c.id, c.display_name, c.stage, c.duration_secs, c.created_at,
+        let sql = format!(
+            // The battery columns are read straight out of the stored
+            // payloads with json_extract rather than by deserialising eight
+            // reports per row: a page of 50 calls is drawn on every
+            // keystroke of the search box.
+            //
+            // Each is scoped to `error IS NULL` so a failed agent leaves the
+            // column blank instead of extracting from an error envelope.
+            "SELECT c.id, c.display_name, c.stage, c.duration_secs, c.created_at,
                         (SELECT json_extract(a.payload_json, '$.overall')
                            FROM analyses a
                           WHERE a.call_id = c.id AND a.agent = 'qa_scorecard'
@@ -708,32 +716,49 @@ impl Store {
                         (SELECT p.display_name FROM people p WHERE p.id = c.contact_id),
                         c.occurred_at
                  FROM calls c
-                 WHERE (?3 = '%%' OR c.display_name LIKE ?3)
-                 ORDER BY c.created_at DESC
-                 LIMIT ?1 OFFSET ?2",
-            )
+                 WHERE (:like = '%%' OR c.display_name LIKE :like)
+                   AND {scope}
+                 -- Real call time first, falling back to ingest time for a
+                 -- call no pattern could date. Ordering by created_at alone
+                 -- puts a bulk ingest in scan order, which is arbitrary.
+                 ORDER BY COALESCE(c.occurred_at, c.created_at) DESC
+                 LIMIT :limit OFFSET :offset",
+            scope = scope::CALL_SCOPE_SQL,
+        );
+
+        let mut stmt = conn
+            .prepare(&sql)
             .map_err(|e| CaError::Storage(format!("prepare list: {e}")))?;
 
         let rows = stmt
-            .query_map(params![limit as i64, offset as i64, like], |r| {
-                Ok(CallSummary {
-                    id: r.get(0)?,
-                    display_name: r.get(1)?,
-                    stage: r.get(2)?,
-                    duration_secs: r.get(3)?,
-                    created_at: r.get(4)?,
-                    overall: r.get(5)?,
-                    sentiment: r.get(6)?,
-                    // SQLite has no boolean type; `json_extract` of a JSON true
-                    // arrives as the integer 1.
-                    compliance_passed: r.get(7)?,
-                    blocking_findings: r.get::<_, i64>(8)?.max(0) as u32,
-                    speaker_count: r.get::<_, Option<i64>>(9)?.map(|n| n as u32),
-                    agent_name: r.get(10)?,
-                    contact_name: r.get(11)?,
-                    occurred_at: r.get(12)?,
-                })
-            })
+            .query_map(
+                rusqlite::named_params! {
+                    ":limit": limit as i64,
+                    ":offset": offset as i64,
+                    ":like": like,
+                    ":scope_person": scope_person,
+                    ":scope_team": scope_team,
+                },
+                |r| {
+                    Ok(CallSummary {
+                        id: r.get(0)?,
+                        display_name: r.get(1)?,
+                        stage: r.get(2)?,
+                        duration_secs: r.get(3)?,
+                        created_at: r.get(4)?,
+                        overall: r.get(5)?,
+                        sentiment: r.get(6)?,
+                        // SQLite has no boolean type; `json_extract` of a JSON true
+                        // arrives as the integer 1.
+                        compliance_passed: r.get(7)?,
+                        blocking_findings: r.get::<_, i64>(8)?.max(0) as u32,
+                        speaker_count: r.get::<_, Option<i64>>(9)?.map(|n| n as u32),
+                        agent_name: r.get(10)?,
+                        contact_name: r.get(11)?,
+                        occurred_at: r.get(12)?,
+                    })
+                },
+            )
             .map_err(|e| CaError::Storage(format!("query list: {e}")))?;
 
         rows.collect::<std::result::Result<Vec<_>, _>>()
@@ -770,16 +795,33 @@ impl Store {
     }
 
     /// Corpus-level counters for the dashboard.
-    pub fn stats(&self) -> Result<Stats> {
+    /// Corpus and spend summary, narrowed to what the viewer may see.
+    ///
+    /// Counts are scoped as well as content: telling an agent the corpus holds
+    /// 1,972 calls when they may open 40 of them leaks the shape of everyone
+    /// else's work.
+    pub fn stats(&self, scope: &ca_core::identity::ViewScope) -> Result<Stats> {
         let conn = self.lock()?;
+        let (scope_person, scope_team) = scope::scope_params(scope);
+        let scoped = |q: &str| format!("{q} WHERE {}", scope::CALL_SCOPE_SQL);
 
         let mut by_stage = std::collections::BTreeMap::new();
         {
+            let sql = format!(
+                "SELECT c.stage, count(*) FROM calls c WHERE {} GROUP BY c.stage",
+                scope::CALL_SCOPE_SQL
+            );
             let mut stmt = conn
-                .prepare("SELECT stage, count(*) FROM calls GROUP BY stage")
+                .prepare(&sql)
                 .map_err(|e| CaError::Storage(format!("prepare stages: {e}")))?;
             let rows = stmt
-                .query_map([], |r| Ok((r.get::<_, String>(0)?, r.get::<_, i64>(1)?)))
+                .query_map(
+                    rusqlite::named_params! {
+                        ":scope_person": scope_person,
+                        ":scope_team": scope_team,
+                    },
+                    |r| Ok((r.get::<_, String>(0)?, r.get::<_, i64>(1)?)),
+                )
                 .map_err(|e| CaError::Storage(format!("query stages: {e}")))?;
             for row in rows {
                 let (s, n) = row.map_err(|e| CaError::Storage(format!("row: {e}")))?;
@@ -787,13 +829,17 @@ impl Store {
             }
         }
 
+        let named = rusqlite::named_params! {
+            ":scope_person": scope_person,
+            ":scope_team": scope_team,
+        };
         let total: i64 = conn
-            .query_row("SELECT count(*) FROM calls", [], |r| r.get(0))
+            .query_row(&scoped("SELECT count(*) FROM calls c"), named, |r| r.get(0))
             .map_err(|e| CaError::Storage(format!("total: {e}")))?;
         let audio_secs: f64 = conn
             .query_row(
-                "SELECT COALESCE(sum(duration_secs),0) FROM calls",
-                [],
+                &scoped("SELECT COALESCE(sum(c.duration_secs),0) FROM calls c"),
+                named,
                 |r| r.get(0),
             )
             .map_err(|e| CaError::Storage(format!("audio: {e}")))?;
@@ -803,9 +849,15 @@ impl Store {
             self.total_usage()?
         };
 
-        let outstanding = self
-            .calls_below_stage(CallStage::Redacted, usize::MAX)?
-            .len();
+        // Outstanding is derived from the scoped stage counts rather than a
+        // second query, so the two can never disagree on screen.
+        let outstanding: usize = by_stage
+            .iter()
+            .filter(|(stage, _)| {
+                parse_stage(stage).is_some_and(|s| !s.is_at_least(CallStage::Redacted))
+            })
+            .map(|(_, n)| *n)
+            .sum();
 
         Ok(Stats {
             total_calls: total as usize,
@@ -1116,7 +1168,9 @@ mod tests {
         )
         .unwrap();
 
-        let row = &s.list_calls(0, 10, None).unwrap()[0];
+        let row = &s
+            .list_calls(0, 10, None, &ca_core::identity::ViewScope::all())
+            .unwrap()[0];
         assert_eq!(row.overall, Some(72.5));
         assert_eq!(row.sentiment, Some(-0.65));
         assert_eq!(row.compliance_passed, Some(false));
@@ -1129,7 +1183,9 @@ mod tests {
         // 0.0 is a neutral call, an absent one is an unassessed call.
         let s = Store::in_memory().unwrap();
         let id = s.upsert_call(&call("k")).unwrap();
-        let row = &s.list_calls(0, 10, None).unwrap()[0];
+        let row = &s
+            .list_calls(0, 10, None, &ca_core::identity::ViewScope::all())
+            .unwrap()[0];
         assert!(row.overall.is_none());
         assert!(row.sentiment.is_none());
         assert!(row.compliance_passed.is_none());
@@ -1159,7 +1215,9 @@ mod tests {
             Some("rate limited"),
         );
 
-        let row = &s.list_calls(0, 10, None).unwrap()[0];
+        let row = &s
+            .list_calls(0, 10, None, &ca_core::identity::ViewScope::all())
+            .unwrap()[0];
         assert!(
             row.compliance_passed.is_none(),
             "read a failed run's payload"
@@ -1182,7 +1240,9 @@ mod tests {
             None,
         );
         assert_eq!(
-            s.list_calls(0, 10, None).unwrap()[0].compliance_passed,
+            s.list_calls(0, 10, None, &ca_core::identity::ViewScope::all())
+                .unwrap()[0]
+                .compliance_passed,
             Some(true)
         );
     }

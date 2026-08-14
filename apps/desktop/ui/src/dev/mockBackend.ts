@@ -840,6 +840,8 @@ const PEOPLE: PersonSummary[] = [
     calls: 196,
     firstCall: '2024-12-14T09:12:00Z',
     lastCall: '2025-06-27T17:41:00Z',
+    role: 'agent',
+    team: null,
   },
   {
     id: 'person_agent',
@@ -849,6 +851,8 @@ const PEOPLE: PersonSummary[] = [
     calls: 48,
     firstCall: '2025-01-08T09:00:00Z',
     lastCall: '2025-11-28T16:20:00Z',
+    role: 'supervisor',
+    team: 'North',
   },
   {
     id: 'person_once',
@@ -858,6 +862,8 @@ const PEOPLE: PersonSummary[] = [
     calls: 1,
     firstCall: '2025-11-12T14:23:26Z',
     lastCall: '2025-11-12T14:23:26Z',
+    role: 'agent',
+    team: null,
   },
 ]
 
@@ -1114,6 +1120,18 @@ function personDetail(personId: string): PersonDetail {
         sequence: 5,
         contactCalls: 196,
       }
+    case 'get_view_scope':
+      return { handle: 'priya sharma', role: 'supervisor', unrestricted: false, team: 'North' }
+    case 'set_operator':
+      return null
+    case 'list_teams':
+      return [
+        { id: 'team_north', name: 'North', members: 4 },
+        { id: 'team_south', name: 'South', members: 3 },
+      ]
+    case 'set_person_role':
+    case 'set_person_team':
+      return null
     case 'attribute_calls':
       return { scanned: 1972, attributed: 1972, skippedManual: 0, unmatched: 0 }
     case 'assign_call_person':

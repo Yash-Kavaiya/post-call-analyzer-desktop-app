@@ -315,6 +315,23 @@ CREATE INDEX idx_calls_contact  ON calls(contact_id, occurred_at);
 CREATE INDEX idx_calls_occurred ON calls(occurred_at DESC);
 "#,
     ),
+    (
+        "0007_roles",
+        r#"
+-- What an agent is allowed to see.
+--
+-- Least privilege by default: a row with no role reads as `agent`, which sees
+-- only its own calls. A missing or unparseable value must never widen access.
+--
+-- This is a *view* filter while everything runs against one local file — the
+-- operating-system user can open the database directly. It becomes a real
+-- boundary only where the scope is applied before data leaves a host, which is
+-- what the sync server does.
+ALTER TABLE people ADD COLUMN role TEXT NOT NULL DEFAULT 'agent';
+
+CREATE INDEX idx_people_role ON people(role);
+"#,
+    ),
 ];
 
 pub fn open(path: &std::path::Path) -> Result<Connection> {

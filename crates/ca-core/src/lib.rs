@@ -25,7 +25,7 @@ pub use audio::{
 };
 pub use call::{Call, CallStage};
 pub use error::{CaError, Result};
-pub use identity::{AttributionSource, Person, PersonKind, Team};
+pub use identity::{AccessRole, AttributionSource, Person, PersonKind, Team, ViewScope};
 pub use ids::{AnalysisId, CallId, FindingId, JobId, PersonId, SegmentId, TeamId};
 pub use provider::{
     AgentContext, Caps, ChatRequest, ChatResponse, Diarizer, LlmProvider, Message, Role, Source,

@@ -49,9 +49,17 @@ struct DiscoverResult {
     added: usize,
 }
 
+/// The viewer's scope, resolved fresh on every command.
+///
+/// Not cached: the operator can change in Settings mid-session, and a stale
+/// scope would keep showing the previous person's calls.
+fn scope_of(state: &AppState) -> CmdResult<ca_core::identity::ViewScope> {
+    state.store.current_scope().map_err(err)
+}
+
 #[tauri::command]
 fn get_stats(state: State<'_, AppState>) -> CmdResult<Stats> {
-    state.store.stats().map_err(err)
+    state.store.stats(&scope_of(&state)?).map_err(err)
 }
 
 #[tauri::command]
@@ -61,15 +69,20 @@ fn list_calls(
     limit: usize,
     search: Option<String>,
 ) -> CmdResult<Vec<CallSummary>> {
+    let scope = scope_of(&state)?;
     state
         .store
-        .list_calls(offset, limit, search.as_deref())
+        .list_calls(offset, limit, search.as_deref(), &scope)
         .map_err(err)
 }
 
 #[tauri::command]
 fn get_call(state: State<'_, AppState>, call_id: String) -> CmdResult<ca_store::CallDetail> {
-    state.store.call_detail(&CallId::from(call_id)).map_err(err)
+    let scope = scope_of(&state)?;
+    state
+        .store
+        .call_detail(&CallId::from(call_id), &scope)
+        .map_err(err)
 }
 
 #[tauri::command]
@@ -795,6 +808,11 @@ pub fn run() {
             people::assign_call_person,
             people::preview_reset,
             people::reset_data,
+            people::get_view_scope,
+            people::set_operator,
+            people::list_teams,
+            people::set_person_role,
+            people::set_person_team,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

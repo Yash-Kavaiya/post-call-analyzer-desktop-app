@@ -746,6 +746,9 @@ export interface PersonSummary {
   /** Null when no call of theirs carries a time — not the same as no calls. */
   firstCall: string | null
   lastCall: string | null
+  /** Meaningless for a contact; agents default to the narrowest role. */
+  role: 'agent' | 'supervisor' | 'admin'
+  team: string | null
 }
 
 export interface MonthPoint {
@@ -814,6 +817,33 @@ export const getPerson = (personId: string): Promise<PersonDetail> =>
 
 export const attributeCalls = (dryRun: boolean, force: boolean): Promise<AttributeReport> =>
   invoke('attribute_calls', { dryRun, force })
+
+export interface ViewScopeInfo {
+  handle: string | null
+  role: 'agent' | 'supervisor' | 'admin'
+  /** True when nothing is filtered: no operator set, or an admin. */
+  unrestricted: boolean
+  team: string | null
+}
+
+export interface TeamSummary {
+  id: string
+  name: string
+  members: number
+}
+
+export const getViewScope = (): Promise<ViewScopeInfo> => invoke('get_view_scope')
+
+export const setOperator = (handle: string | null): Promise<void> =>
+  invoke('set_operator', { handle })
+
+export const listTeams = (): Promise<TeamSummary[]> => invoke('list_teams')
+
+export const setPersonRole = (personId: string, role: string): Promise<void> =>
+  invoke('set_person_role', { personId, role })
+
+export const setPersonTeam = (personId: string, team: string | null): Promise<void> =>
+  invoke('set_person_team', { personId, team })
 
 export interface ResetReport {
   calls: number

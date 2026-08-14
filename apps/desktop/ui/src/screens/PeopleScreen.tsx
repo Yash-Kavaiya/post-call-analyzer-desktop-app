@@ -122,6 +122,8 @@ export function PeopleScreen({ onOpenPerson }: PeopleScreenProps) {
               <tr>
                 <th>Name</th>
                 <th>Kind</th>
+                <th>Role</th>
+                <th>Team</th>
                 <th>Calls</th>
                 <th>First call</th>
                 <th>Last call</th>
@@ -141,6 +143,16 @@ export function PeopleScreen({ onOpenPerson }: PeopleScreenProps) {
                   <td>
                     <span className={`people-kind people-kind-${p.kind}`}>{p.kind}</span>
                   </td>
+                  <td>
+                    {/* A contact has no role. Showing `agent` there would be a
+                        meaningless value wearing the look of a real one. */}
+                    {p.kind === 'agent' ? (
+                      <span className={`people-role people-role-${p.role}`}>{p.role}</span>
+                    ) : (
+                      <span className="people-none">&mdash;</span>
+                    )}
+                  </td>
+                  <td>{p.team ?? <span className="people-none">&mdash;</span>}</td>
                   <td className="people-num">{p.calls}</td>
                   <td className="people-num">{day(p.firstCall)}</td>
                   <td className="people-num">{day(p.lastCall)}</td>

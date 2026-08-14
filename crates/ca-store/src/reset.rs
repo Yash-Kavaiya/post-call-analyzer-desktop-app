@@ -232,7 +232,9 @@ mod tests {
         assert_eq!(s.list_people(None, None).unwrap().len(), 1);
         // A scored call is now merely redacted, not still claiming a score.
         assert_eq!(
-            s.list_calls(0, 10, None).unwrap()[0].stage,
+            s.list_calls(0, 10, None, &ca_core::identity::ViewScope::all())
+                .unwrap()[0]
+                .stage,
             "redacted",
             "a cleared call must not still say it was analysed"
         );
@@ -244,7 +246,12 @@ mod tests {
         s.reset(ResetScope::Transcripts).unwrap();
 
         assert_eq!(s.count_calls().unwrap(), 1);
-        assert_eq!(s.list_calls(0, 10, None).unwrap()[0].stage, "discovered");
+        assert_eq!(
+            s.list_calls(0, 10, None, &ca_core::identity::ViewScope::all())
+                .unwrap()[0]
+                .stage,
+            "discovered"
+        );
         // Identity survives: it comes from the filename, not the transcript.
         assert_eq!(s.list_people(None, None).unwrap().len(), 1);
     }

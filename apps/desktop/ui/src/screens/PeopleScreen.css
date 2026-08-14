@@ -32,6 +32,10 @@
 
 .people-kind { padding: 3px 9px; border-radius: 999px; font-size: 12px;
   background: var(--surface-container-high); color: var(--on-surface-variant); }
+.people-role { padding: 3px 9px; border-radius: 999px; font-size: 12px;
+  background: var(--surface-container-high); color: var(--on-surface-variant); }
+.people-role-supervisor { background: rgba(30,142,62,.16); color: var(--success, #1E8E3E); }
+.people-role-admin { background: rgba(26,115,232,.16); color: var(--md-sys-color-primary); }
 .people-kind-agent { background: rgba(26,115,232,.16); color: var(--md-sys-color-primary); }
 
 /* A dash is deliberately dimmer than a value. Scanning for what has *not* been

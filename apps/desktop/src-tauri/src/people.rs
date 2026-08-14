@@ -158,3 +158,92 @@ pub struct ResetOutcome {
     /// Where the copy went, so the user can find it if the reset was a mistake.
     pub backup_path: Option<String>,
 }
+
+// -------------------------------------------------------------- roles
+
+/// Who this machine is signed in as, and what that lets them see.
+#[derive(serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ViewScopeInfo {
+    /// The configured operator handle, if any.
+    pub handle: Option<String>,
+    /// `agent`, `supervisor` or `admin`.
+    pub role: String,
+    /// True when nothing is filtered — no operator set, or an admin.
+    pub unrestricted: bool,
+    /// Named so the UI can say *whose* team, not just that there is one.
+    pub team: Option<String>,
+}
+
+#[tauri::command]
+pub fn get_view_scope(store: State<'_, Arc<Store>>) -> Result<ViewScopeInfo, String> {
+    let scope = store.current_scope().map_err(|e| e.to_string())?;
+    let team = scope
+        .team_id
+        .as_ref()
+        .and_then(|t| {
+            store
+                .list_teams()
+                .ok()?
+                .into_iter()
+                .find(|s| s.id == t.as_str())
+        })
+        .map(|t| t.name);
+
+    Ok(ViewScopeInfo {
+        handle: store.operator_handle().map_err(|e| e.to_string())?,
+        role: scope.role.as_str().to_string(),
+        unrestricted: scope.is_unrestricted(),
+        team,
+    })
+}
+
+/// Set who is using this machine. An empty handle clears it.
+#[tauri::command]
+pub fn set_operator(store: State<'_, Arc<Store>>, handle: Option<String>) -> Result<(), String> {
+    store
+        .set_operator(handle.as_deref())
+        .map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub fn list_teams(store: State<'_, Arc<Store>>) -> Result<Vec<ca_store::TeamSummary>, String> {
+    store.list_teams().map_err(|e| e.to_string())
+}
+
+/// Change an agent's role.
+///
+/// Guarded by the caller's own role: only an admin may hand out access. The
+/// check is here rather than in the UI because a disabled button is not a
+/// control, and the dev bridge reaches these paths too.
+#[tauri::command]
+pub fn set_person_role(
+    store: State<'_, Arc<Store>>,
+    person_id: String,
+    role: String,
+) -> Result<(), String> {
+    let current = store.current_scope().map_err(|e| e.to_string())?;
+    if !current.role.can_administer() {
+        return Err("only an admin can change roles".into());
+    }
+    let role = ca_core::identity::AccessRole::parse(&role).ok_or("unknown role")?;
+    store
+        .set_person_role(&PersonId::from(person_id), role)
+        .map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub fn set_person_team(
+    store: State<'_, Arc<Store>>,
+    person_id: String,
+    team: Option<String>,
+) -> Result<(), String> {
+    let current = store.current_scope().map_err(|e| e.to_string())?;
+    if !current.role.can_administer() {
+        return Err("only an admin can change teams".into());
+    }
+    store
+        .set_person_team(&PersonId::from(person_id), team.as_deref())
+        .map(|_| ())
+        .map_err(|e| e.to_string())
+}
