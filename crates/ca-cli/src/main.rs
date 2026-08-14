@@ -105,6 +105,27 @@ enum Command {
         #[arg(long, default_value_t = false)]
         force: bool,
     },
+    /// Clear the corpus so you can start again.
+    ///
+    /// Takes a copy of the database first unless told not to. That copy is the
+    /// only thing between a mistaken reset and a corpus that took hours to
+    /// build, so opting out has to be deliberate.
+    Reset {
+        /// analyses | transcripts | all.
+        ///
+        /// `analyses` drops scores and findings but keeps transcripts, so a
+        /// re-score costs model calls and no transcription. `transcripts` also
+        /// drops the text and returns every call to `discovered`. `all` empties
+        /// the corpus; settings are kept either way.
+        #[arg(long, default_value = "analyses")]
+        scope: String,
+        /// Skip the confirmation prompt. Required when not on a terminal.
+        #[arg(long, default_value_t = false)]
+        yes: bool,
+        /// Do not copy the database first.
+        #[arg(long, default_value_t = false)]
+        no_backup: bool,
+    },
     /// List the people on calls.
     People {
         /// `agent` or `contact`. Both if omitted.
@@ -503,6 +524,58 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 } else {
                     ""
                 },
+            );
+        }
+        Command::Reset {
+            scope,
+            yes,
+            no_backup,
+        } => {
+            let Some(scope) = ca_store::ResetScope::parse(&scope) else {
+                eprintln!("unknown scope `{scope}` — use analyses, transcripts or all");
+                std::process::exit(2);
+            };
+
+            let preview = store.reset_preview(scope)?;
+            println!("This will delete {}.", scope.describe());
+            println!(
+                "  {} calls, {} transcripts, {} analyses, {} findings, {} people, {} runs",
+                preview.calls,
+                preview.transcripts,
+                preview.analyses,
+                preview.findings,
+                preview.people,
+                preview.runs,
+            );
+
+            if !yes {
+                // Nothing is destroyed on a bare `ca reset`: the count above is
+                // usually enough to change someone's mind about the scope.
+                println!(
+                    "
+Nothing was deleted. Re-run with --yes to go ahead."
+                );
+                return Ok(());
+            }
+
+            if !no_backup {
+                let stamp = chrono::Local::now().format("%Y%m%d-%H%M%S").to_string();
+                match ca_store::backup_db(&db_path, &stamp) {
+                    Ok(path) => println!("backup: {}", path.display()),
+                    Err(e) => {
+                        // Refuse rather than proceed: an unbacked-up reset is a
+                        // different, far riskier operation than the one asked for.
+                        eprintln!("could not back up the database: {e}");
+                        eprintln!("nothing was deleted — pass --no-backup to reset anyway");
+                        std::process::exit(1);
+                    }
+                }
+            }
+
+            let report = store.reset(scope)?;
+            println!(
+                "removed {} calls, {} transcripts, {} analyses, {} findings, {} people",
+                report.calls, report.transcripts, report.analyses, report.findings, report.people,
             );
         }
         Command::People {

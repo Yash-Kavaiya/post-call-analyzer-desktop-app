@@ -11,6 +11,7 @@ pub mod findings;
 pub mod observability;
 pub mod payload;
 pub mod people;
+pub mod reset;
 pub mod runs;
 pub mod schema;
 pub mod settings;
@@ -20,6 +21,7 @@ pub use attribute::{AttributeOptions, AttributeReport};
 pub use findings::{FindingCount, StoredFinding};
 pub use observability::{AgentHealth, AgentRun};
 pub use people::{CallPeople, PersonSummary};
+pub use reset::{backup_db, ResetReport, ResetScope};
 pub use runs::{RunItem, RunSummary};
 
 use ca_core::analysis::{Analysis, Finding};

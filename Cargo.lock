@@ -353,6 +353,7 @@ dependencies = [
  "ca-llm",
  "ca-pipeline",
  "ca-store",
+ "chrono",
  "clap",
  "serde_json",
  "tokio",
