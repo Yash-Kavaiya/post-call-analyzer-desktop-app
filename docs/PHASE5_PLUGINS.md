@@ -55,10 +55,23 @@ Drop the file in `plugins/` beside the database, then:
 ```bash
 ca plugins                                    # what loaded, and what did not
 ca plugin-check examples/plugins/callback_sla.toml
+ca plugin-run callback_sla --limit 10         # over transcribed calls
+ca plugin-run callback_sla --call-id call_abc --force
 ```
 
 `plugin-check` prints the exact JSON shape the model will be asked for, so a
 plugin can be reviewed before it is pointed at a corpus or a metered provider.
+
+`plugin-run` is deliberately **separate from `ca score`**. A plugin is metered
+spend the user chose to add; folding it into the battery would mean dropping a
+file in a directory silently increased the cost of every future batch. It skips
+calls this plugin has already scored unless `--force` is given, and only
+touches calls that reached `redacted` — a plugin has nothing to read before
+that.
+
+A run that fails is **recorded** with its error rather than only printed. A
+failed plugin that leaves no trace is indistinguishable from one that was
+never attempted.
 
 ## The rules, and why each exists
 
@@ -76,6 +89,21 @@ A missing **required** field fails the response rather than defaulting. A
 plugin measuring policy adherence that silently reports `0` when the model said
 nothing is producing a fabricated measurement — indistinguishable, on screen,
 from a real score of zero.
+
+## Where results are stored
+
+Plugin results go in **`plugin_analyses`**, keyed `(call_id, plugin)` — not in
+`analyses`. That table's `agent` column holds an `AgentKind`, a closed enum the
+battery matches exhaustively. Squeezing plugins in would mean either widening
+that enum for every user-written file, or having every plugin share one value —
+and since the index is `(call_id, agent)`, sharing a value means the second
+plugin silently overwrites the first.
+
+Findings are keyed by **producer**: `plugin:callback_sla`, never the shared
+`rules` kind. Findings are cleared per producer before being re-inserted, so a
+plugin sharing a built-in's key would delete that agent's findings on every
+run, and two plugins would delete each other's. This was a real bug, caught by
+running a plugin against a real call and looking at the `agent` column.
 
 ## Findings
 
@@ -106,9 +134,11 @@ An absent `plugins/` directory is not an error. Most installs have none.
 ## Known limitations
 
 - **No UI.** Plugins are managed from the CLI and the filesystem.
-- **No scheduling.** A plugin runs when asked; it is not yet part of the
-  automatic battery, so adding one does not silently start spending on every
-  call in a batch.
+- **No scheduling.** A plugin runs when asked, via `ca plugin-run`. It is
+  deliberately not part of the automatic battery, so adding one does not
+  silently start spending on every call in a batch.
+- **No UI for results.** `plugin_analyses` is written and readable from the
+  store, but the call screen does not render plugin output yet.
 - **No versioning.** Editing a plugin changes what future runs produce; stored
   results from the old version are not migrated or marked.
 - **One `AgentKind`.** All plugin findings share the `rules` kind so the
@@ -121,6 +151,15 @@ An absent `plugins/` directory is not an error. Most installs have none.
 cargo test -p ca-plugins
 ```
 
-22 tests covering the rules above, including that a plugin cannot take a
-built-in name, that a duplicate name disables only the later file, and that a
-finding citing an invented segment is dropped.
+23 tests covering the rules above, including that a plugin cannot take a
+built-in name, that a duplicate name disables only the later file, that a
+finding citing an invented segment is dropped, and that a finding's producer
+key is the plugin rather than the shared kind.
+
+Two more in `ca-store` pin the storage scoping: that one plugin's findings do
+not clear another producer's, and that re-running one plugin replaces only its
+own result.
+
+Verified end to end against a real call with a real model: the plugin correctly
+reported a promised callback with no stated time, and filed namespaced findings
+under `plugin:callback_sla`.

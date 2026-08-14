@@ -49,6 +49,7 @@ fn corpus() -> Arc<Store> {
         &id,
         &[Finding {
             id: ca_core::ids::FindingId::new(),
+            plugin: None,
             call_id: id.clone(),
             agent: ca_core::AgentKind::Compliance,
             code: "PCI_PAN_SPOKEN".into(),

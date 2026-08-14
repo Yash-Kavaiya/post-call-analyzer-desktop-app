@@ -105,6 +105,7 @@ impl ComplianceAgent {
             let severity = Severity::parse(&f.severity).unwrap_or(Severity::Medium);
             findings.push(Finding {
                 id: FindingId::new(),
+                plugin: None,
                 call_id: transcript.call_id.clone(),
                 agent: AgentKind::Compliance,
                 code: f.code.trim().to_ascii_uppercase(),

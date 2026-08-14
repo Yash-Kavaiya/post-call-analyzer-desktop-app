@@ -188,6 +188,7 @@ mod tests {
     fn finding(call: &CallId, code: &str, severity: Severity) -> Finding {
         Finding {
             id: FindingId::new(),
+            plugin: None,
             call_id: call.clone(),
             agent: AgentKind::Compliance,
             code: code.into(),

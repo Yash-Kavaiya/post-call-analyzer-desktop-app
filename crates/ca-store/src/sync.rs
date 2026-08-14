@@ -232,6 +232,7 @@ mod tests {
             &id,
             &[Finding {
                 id: ca_core::ids::FindingId::new(),
+                plugin: None,
                 call_id: id.clone(),
                 agent: ca_core::AgentKind::Compliance,
                 code: "HOLD_NOT_TIMEBOXED".into(),

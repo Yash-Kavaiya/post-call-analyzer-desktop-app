@@ -621,8 +621,10 @@ impl Store {
         let tx = conn
             .transaction()
             .map_err(|e| CaError::Storage(format!("begin: {e}")))?;
-        let mut agents: Vec<&str> = findings.iter().map(|f| f.agent.as_str()).collect();
-        agents.sort_unstable();
+        // Keyed by producer, not by AgentKind: a plugin filing under a
+        // built-in's kind would delete that agent's findings on every run.
+        let mut agents: Vec<String> = findings.iter().map(|f| f.producer_key()).collect();
+        agents.sort();
         agents.dedup();
         for agent in agents {
             tx.execute(
@@ -638,7 +640,7 @@ impl Store {
                 params![
                     f.id.as_str(),
                     call_id.as_str(),
-                    f.agent.as_str(),
+                    f.producer_key(),
                     f.code,
                     f.title,
                     f.detail,
@@ -1161,6 +1163,7 @@ mod tests {
             &id,
             &[Finding {
                 id: ca_core::ids::FindingId::new(),
+                plugin: None,
                 call_id: id.clone(),
                 agent: AgentKind::Compliance,
                 code: "PCI_PAN".into(),
@@ -1459,6 +1462,103 @@ mod tests {
         assert_eq!(refs[0].qa_overall, None, "nothing analysed means no score");
     }
 
+    /// A plugin filing under a built-in's AgentKind would delete that agent's
+    /// findings on every run, and two plugins would delete each other's.
+    /// Findings are cleared per *producer*, not per kind.
+    #[test]
+    fn a_plugins_findings_do_not_clear_another_producers() {
+        let s = Store::in_memory().unwrap();
+        let id = s.upsert_call(&call("k-producers")).unwrap();
+
+        let finding = |plugin: Option<&str>, code: &str| ca_core::analysis::Finding {
+            id: ca_core::ids::FindingId::new(),
+            plugin: plugin.map(str::to_string),
+            call_id: id.clone(),
+            agent: ca_core::AgentKind::Rules,
+            code: code.into(),
+            title: "t".into(),
+            detail: "d".into(),
+            severity: ca_core::analysis::Severity::High,
+            citations: vec![],
+        };
+
+        // The deterministic live rules file first.
+        s.save_findings(&id, &[finding(None, "HOLD_NOT_TIMEBOXED")])
+            .unwrap();
+        // Then one plugin, then another. Both share AgentKind::Rules.
+        s.save_findings(&id, &[finding(Some("callback_sla"), "LATE")])
+            .unwrap();
+        s.save_findings(&id, &[finding(Some("loyalty"), "MISSED")])
+            .unwrap();
+
+        let codes: Vec<String> = s
+            .findings(&id)
+            .unwrap()
+            .into_iter()
+            .map(|f| f.code)
+            .collect();
+        assert_eq!(codes.len(), 3, "all three producers survive: {codes:?}");
+
+        // Re-running one plugin replaces only its own.
+        s.save_findings(&id, &[finding(Some("callback_sla"), "LATE_V2")])
+            .unwrap();
+        let codes: Vec<String> = s
+            .findings(&id)
+            .unwrap()
+            .into_iter()
+            .map(|f| f.code)
+            .collect();
+        assert_eq!(codes.len(), 3, "still three: {codes:?}");
+        assert!(codes.contains(&"LATE_V2".to_string()));
+        assert!(codes.contains(&"HOLD_NOT_TIMEBOXED".to_string()));
+        assert!(codes.contains(&"MISSED".to_string()));
+    }
+
+    #[test]
+    fn one_plugins_result_does_not_replace_anothers() {
+        let s = Store::in_memory().unwrap();
+        let id = s.upsert_call(&call("k-plugin-analyses")).unwrap();
+        let usage = ca_core::analysis::Usage::default();
+
+        s.save_plugin_analysis(
+            &id,
+            "alpha",
+            &serde_json::json!({"v":1}),
+            "p",
+            "m",
+            &usage,
+            None,
+        )
+        .unwrap();
+        s.save_plugin_analysis(
+            &id,
+            "beta",
+            &serde_json::json!({"v":2}),
+            "p",
+            "m",
+            &usage,
+            None,
+        )
+        .unwrap();
+        // Re-running alpha replaces alpha only.
+        s.save_plugin_analysis(
+            &id,
+            "alpha",
+            &serde_json::json!({"v":3}),
+            "p",
+            "m",
+            &usage,
+            None,
+        )
+        .unwrap();
+
+        let stored = s.plugin_analyses(&id).unwrap();
+        assert_eq!(stored.len(), 2);
+        assert_eq!(stored[0].plugin, "alpha");
+        assert_eq!(stored[0].payload["v"], serde_json::json!(3));
+        assert_eq!(stored[1].payload["v"], serde_json::json!(2));
+    }
+
     /// Reassigning by hand must not discard the call time.
     ///
     /// Routing a manual assignment through `set_call_participants` would pass
@@ -1492,5 +1592,98 @@ mod tests {
         assert_eq!(after.len(), 1);
         assert_eq!(after[0].occurred_at, before, "the call time survived");
         assert_eq!(s.call_attribution(&id).unwrap(), AttributionSource::Manual);
+    }
+}
+
+/// One plugin's stored result for a call.
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct PluginAnalysis {
+    pub plugin: String,
+    pub payload: serde_json::Value,
+    pub provider: String,
+    pub model: String,
+    pub cost_usd: Option<f64>,
+    pub created_at: String,
+    /// Set when the plugin ran but its output failed validation.
+    pub error: Option<String>,
+}
+
+impl Store {
+    /// Store a plugin's result, replacing that plugin's previous one.
+    ///
+    /// Scoped to `(call_id, plugin)`, so re-running one plugin leaves every
+    /// other plugin's result — and the whole built-in battery — untouched.
+    #[allow(clippy::too_many_arguments)]
+    pub fn save_plugin_analysis(
+        &self,
+        call_id: &CallId,
+        plugin: &str,
+        payload: &serde_json::Value,
+        provider: &str,
+        model: &str,
+        usage: &ca_core::analysis::Usage,
+        error: Option<&str>,
+    ) -> Result<()> {
+        let conn = self.lock()?;
+        conn.execute(
+            "INSERT INTO plugin_analyses
+                 (id, call_id, plugin, payload_json, provider, model,
+                  input_tokens, output_tokens, cost_usd, latency_ms, error, created_at)
+             VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9,?10,?11,?12)
+             ON CONFLICT(call_id, plugin) DO UPDATE SET
+                 payload_json = excluded.payload_json,
+                 provider     = excluded.provider,
+                 model        = excluded.model,
+                 input_tokens = excluded.input_tokens,
+                 output_tokens= excluded.output_tokens,
+                 cost_usd     = excluded.cost_usd,
+                 latency_ms   = excluded.latency_ms,
+                 error        = excluded.error,
+                 created_at   = excluded.created_at",
+            params![
+                ca_core::ids::AnalysisId::new().as_str(),
+                call_id.as_str(),
+                plugin,
+                serde_json::to_string(payload).unwrap_or_else(|_| "{}".into()),
+                provider,
+                model,
+                usage.input_tokens as i64,
+                usage.output_tokens as i64,
+                usage.cost_usd,
+                usage.latency_ms as i64,
+                error,
+                chrono::Utc::now().to_rfc3339(),
+            ],
+        )
+        .map_err(|e| CaError::Storage(format!("save plugin analysis: {e}")))?;
+        Ok(())
+    }
+
+    /// Every plugin result for a call.
+    pub fn plugin_analyses(&self, call_id: &CallId) -> Result<Vec<PluginAnalysis>> {
+        let conn = self.lock()?;
+        let mut stmt = conn
+            .prepare(
+                "SELECT plugin, payload_json, provider, model, cost_usd, created_at, error
+                   FROM plugin_analyses WHERE call_id = ?1 ORDER BY plugin",
+            )
+            .map_err(|e| CaError::Storage(format!("prepare plugin analyses: {e}")))?;
+        let rows = stmt
+            .query_map([call_id.as_str()], |r| {
+                let raw: String = r.get(1)?;
+                Ok(PluginAnalysis {
+                    plugin: r.get(0)?,
+                    payload: serde_json::from_str(&raw).unwrap_or(serde_json::Value::Null),
+                    provider: r.get(2)?,
+                    model: r.get(3)?,
+                    cost_usd: r.get(4)?,
+                    created_at: r.get(5)?,
+                    error: r.get(6)?,
+                })
+            })
+            .map_err(|e| CaError::Storage(format!("query plugin analyses: {e}")))?;
+        rows.collect::<std::result::Result<Vec<_>, _>>()
+            .map_err(|e| CaError::Storage(format!("read plugin analyses: {e}")))
     }
 }

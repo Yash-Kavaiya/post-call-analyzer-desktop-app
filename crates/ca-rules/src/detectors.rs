@@ -63,6 +63,7 @@ fn finding(
 ) -> Finding {
     Finding {
         id: FindingId::new(),
+        plugin: None,
         call_id: ctx.call_id.clone(),
         agent: AgentKind::Rules,
         code: code.into(),

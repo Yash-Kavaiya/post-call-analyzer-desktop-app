@@ -248,6 +248,7 @@ mod tests {
 
         let hits = vec![Finding {
             id: FindingId::new(),
+            plugin: None,
             call_id: CallId::from("call_1"),
             agent: AgentKind::Rules,
             code: "PCI_PAN_SPOKEN".into(),

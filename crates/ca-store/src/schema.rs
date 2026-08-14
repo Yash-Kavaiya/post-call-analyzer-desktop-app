@@ -366,6 +366,38 @@ CREATE TABLE sync_state (
 );
 "#,
     ),
+    (
+        "0009_plugin_analyses",
+        r#"
+-- Results from custom agents.
+--
+-- A separate table because `analyses.agent` holds an `AgentKind`, which is a
+-- closed enum the battery matches exhaustively. Squeezing plugins into it
+-- would mean either widening that enum for every user-written file, or having
+-- every plugin share one value — and since the unique index is
+-- (call_id, agent), sharing a value means the second plugin silently
+-- overwrites the first.
+CREATE TABLE plugin_analyses (
+    id            TEXT PRIMARY KEY,
+    call_id       TEXT NOT NULL REFERENCES calls(id) ON DELETE CASCADE,
+    -- The plugin's declared name.
+    plugin        TEXT NOT NULL,
+    payload_json  TEXT NOT NULL,
+    provider      TEXT NOT NULL,
+    model         TEXT NOT NULL,
+    input_tokens  INTEGER NOT NULL DEFAULT 0,
+    output_tokens INTEGER NOT NULL DEFAULT 0,
+    cost_usd      REAL,
+    latency_ms    INTEGER NOT NULL DEFAULT 0,
+    error         TEXT,
+    created_at    TEXT NOT NULL
+);
+
+-- One result per plugin per call; re-running replaces its row and nobody
+-- else's.
+CREATE UNIQUE INDEX idx_plugin_analyses ON plugin_analyses(call_id, plugin);
+"#,
+    ),
 ];
 
 pub fn open(path: &std::path::Path) -> Result<Connection> {

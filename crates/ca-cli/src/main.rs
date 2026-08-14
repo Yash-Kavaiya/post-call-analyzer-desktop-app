@@ -197,6 +197,32 @@ enum Command {
         #[arg(long)]
         dir: Option<PathBuf>,
     },
+    /// Run a custom agent over calls that already have a transcript.
+    ///
+    /// Separate from `score` on purpose: a plugin is metered spend the user
+    /// chose to add, and folding it into the battery would mean adding a file
+    /// silently increased the cost of every future batch.
+    PluginRun {
+        /// Plugin name, as declared in its file.
+        name: String,
+        /// Directory to load from. Defaults to `plugins/` beside the database.
+        #[arg(long)]
+        dir: Option<PathBuf>,
+        /// One call, instead of a sweep.
+        #[arg(long)]
+        call_id: Option<String>,
+        #[arg(long, default_value_t = 10)]
+        limit: usize,
+        #[arg(long, default_value = "nvidia_nim")]
+        provider: String,
+        #[arg(long, default_value = "meta/llama-3.1-8b-instruct")]
+        model: String,
+        #[arg(long)]
+        base_url: Option<String>,
+        /// Re-run for calls this plugin has already scored.
+        #[arg(long, default_value_t = false)]
+        force: bool,
+    },
     /// Check one plugin file and print the prompt it would send.
     ///
     /// Prints the shape asked of the model, so a plugin can be reviewed before
@@ -818,6 +844,143 @@ Nothing was deleted. Re-run with --yes to go ahead."
                     (None, None) => {}
                 }
             }
+        }
+
+        Command::PluginRun {
+            name,
+            dir,
+            call_id,
+            limit,
+            provider,
+            model,
+            base_url,
+            force,
+        } => {
+            let dir = dir.unwrap_or_else(|| {
+                let base = ca_store::default_db_path();
+                let base = base.parent().map(|p| p.to_path_buf()).unwrap_or_default();
+                ca_plugins::default_plugin_dir(&base)
+            });
+            let loaded = ca_plugins::load_dir(&dir)?;
+            let Some(spec) = ca_plugins::usable(&loaded)
+                .into_iter()
+                .find(|s| s.name == name)
+                .cloned()
+            else {
+                eprintln!("no plugin named `{name}` in {}", dir.display());
+                eprintln!("`ca plugins --dir {}` lists what loaded", dir.display());
+                std::process::exit(2);
+            };
+
+            let kind = ProviderKind::parse(&provider)
+                .ok_or_else(|| format!("unknown provider `{provider}`"))?;
+            let key = kind.api_key_from_env();
+            if kind.requires_api_key() && key.is_none() {
+                return Err(format!(
+                    "{} needs a key in ${}",
+                    kind.label(),
+                    kind.env_var().unwrap_or("(none)")
+                )
+                .into());
+            }
+            let mut pspec = ProviderSpec::new(kind, &model);
+            pspec.base_url = base_url;
+            let llm = ca_llm::build_provider(&pspec, key.as_deref())?;
+
+            // Only transcribed calls: a plugin has nothing to read otherwise,
+            // and paying a provider to be told so is a waste.
+            let targets: Vec<ca_core::ids::CallId> = match call_id {
+                Some(id) => vec![ca_core::ids::CallId::from(id)],
+                None => store
+                    // Redacted or beyond: a plugin has nothing to read before
+                    // that, and paying a provider to be told so is a waste.
+                    .calls_in_stage_range(Some(CallStage::Redacted), CallStage::Failed, limit)?,
+            };
+
+            println!(
+                "plugin `{}` over {} call(s) with {} / {}",
+                spec.name,
+                targets.len(),
+                kind.label(),
+                model
+            );
+
+            let mut ran = 0usize;
+            let mut skipped = 0usize;
+            let mut failed = 0usize;
+
+            for id in targets {
+                if !force
+                    && store
+                        .plugin_analyses(&id)?
+                        .iter()
+                        .any(|a| a.plugin == spec.name && a.error.is_none())
+                {
+                    skipped += 1;
+                    continue;
+                }
+                let Some(transcript) = store.load_transcript(&id)? else {
+                    skipped += 1;
+                    continue;
+                };
+
+                // Redacted text only, exactly as the battery sends it. This is
+                // the guard the whole product rests on and a plugin is not an
+                // exception to it.
+                match ca_plugins::run_plugin(&spec, llm.as_ref(), &transcript).await {
+                    Ok((result, resp)) => {
+                        store.save_plugin_analysis(
+                            &id,
+                            &spec.name,
+                            &result.payload,
+                            kind.as_str(),
+                            &model,
+                            &ca_core::analysis::Usage {
+                                input_tokens: resp.input_tokens,
+                                output_tokens: resp.output_tokens,
+                                cost_usd: None,
+                                latency_ms: resp.latency_ms,
+                            },
+                            None,
+                        )?;
+                        if !result.findings.is_empty() {
+                            store.save_findings(&id, &result.findings)?;
+                        }
+                        ran += 1;
+                        println!(
+                            "  {}  {} finding(s){}",
+                            id.as_str(),
+                            result.findings.len(),
+                            if result.dropped_citations > 0 {
+                                format!(
+                                    ", {} invented citation(s) dropped",
+                                    result.dropped_citations
+                                )
+                            } else {
+                                String::new()
+                            }
+                        );
+                    }
+                    Err(e) => {
+                        // Recorded rather than only printed: a failed plugin
+                        // run that leaves no trace looks identical to one that
+                        // was never attempted.
+                        store.save_plugin_analysis(
+                            &id,
+                            &spec.name,
+                            &serde_json::Value::Null,
+                            kind.as_str(),
+                            &model,
+                            &ca_core::analysis::Usage::default(),
+                            Some(&e.to_string()),
+                        )?;
+                        failed += 1;
+                        eprintln!("  {}  FAILED: {e}", id.as_str());
+                    }
+                }
+            }
+
+            println!("{ran} ran, {skipped} skipped, {failed} failed");
         }
 
         Command::PluginCheck { file } => {

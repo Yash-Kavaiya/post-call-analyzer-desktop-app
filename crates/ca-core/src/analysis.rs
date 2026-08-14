@@ -215,11 +215,32 @@ pub struct Finding {
     pub id: FindingId,
     pub call_id: CallId,
     pub agent: AgentKind,
+    /// Set when a plugin produced this rather than a built-in agent.
+    ///
+    /// Findings are cleared per producer, so a plugin sharing a built-in's
+    /// `AgentKind` would delete that agent's findings on every run — and two
+    /// plugins would delete each other's. The stored key is namespaced
+    /// instead; see [`Finding::producer_key`].
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub plugin: Option<String>,
     pub code: String,
     pub title: String,
     pub detail: String,
     pub severity: Severity,
     pub citations: Vec<Citation>,
+}
+
+impl Finding {
+    /// What goes in the `agent` column, and the key findings are cleared by.
+    ///
+    /// A plugin's key is `plugin:<name>`, which cannot collide with any
+    /// `AgentKind` string because those contain no colon.
+    pub fn producer_key(&self) -> String {
+        match &self.plugin {
+            Some(name) => format!("plugin:{name}"),
+            None => self.agent.as_str().to_string(),
+        }
+    }
 }
 
 /// One labelled moment on the call's sentiment trajectory.

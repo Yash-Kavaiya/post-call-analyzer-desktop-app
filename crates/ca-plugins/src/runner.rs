@@ -138,9 +138,13 @@ fn validate(
 
             findings.push(Finding {
                 id: FindingId::new(),
+                // Names the producer, so clearing this plugin's findings
+                // cannot delete the deterministic rules' — or another
+                // plugin's. Without it every producer shares one key.
+                plugin: Some(spec.name.clone()),
                 call_id: transcript.call_id.clone(),
                 // Plugins share one kind so the battery's exhaustive matches
-                // stay exhaustive; the code carries which plugin it was.
+                // stay exhaustive; `plugin` carries which one it was.
                 agent: AgentKind::Rules,
                 code: format!(
                     "{}_{}",
@@ -274,6 +278,32 @@ mod tests {
             "the plugin name namespaces the code so two plugins cannot collide"
         );
         assert_eq!(r.findings[0].severity, Severity::High);
+    }
+
+    /// A plugin's findings must be keyed to the plugin. Sharing the `rules`
+    /// key means the next deterministic-rules run deletes them, and so does
+    /// the next plugin.
+    #[test]
+    fn a_findings_producer_is_the_plugin_not_the_shared_kind() {
+        let r = validate(
+            &spec(true, true),
+            serde_json::json!({
+                "promised": true,
+                "findings": [{
+                    "code": "LATE", "title": "t", "detail": "d", "severity": "high",
+                    "citations": [{ "segment_id": "seg_a" }]
+                }]
+            }),
+            &transcript(),
+        )
+        .unwrap();
+
+        assert_eq!(r.findings[0].plugin.as_deref(), Some("callback_sla"));
+        assert_eq!(
+            r.findings[0].producer_key(),
+            "plugin:callback_sla",
+            "stored under the plugin, never under the shared kind"
+        );
     }
 
     #[test]
