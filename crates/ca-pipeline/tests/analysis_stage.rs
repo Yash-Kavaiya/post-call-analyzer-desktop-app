@@ -291,3 +291,54 @@ async fn an_analysis_target_without_an_analyzer_fails_before_any_work() {
     let err = pipeline.run(&score_options(), |_| {}).await.err().unwrap();
     assert!(format!("{err}").contains("no analyzer"), "got {err}");
 }
+
+/// Identity must not become a second way for personal data to reach a
+/// provider.
+///
+/// `people` holds exactly what the transcript pipeline scrubs — a contact's
+/// saved name and their number. The transcript redaction guard has always
+/// covered the words spoken on the call; it says nothing about a name attached
+/// to the call as metadata. Nothing wires participants into `AgentContext`
+/// today, and this test is what makes adding one later a visible decision
+/// rather than a quiet leak.
+#[tokio::test]
+async fn a_participant_name_never_reaches_the_model() {
+    let (store, id) = store_with_redacted_call();
+
+    let contact = store
+        .upsert_person(
+            ca_core::identity::PersonKind::Contact,
+            "Babulal Kavaiya",
+            "babulal kavaiya",
+        )
+        .unwrap();
+    let agent = store
+        .upsert_person(
+            ca_core::identity::PersonKind::Agent,
+            "Priya Sharma",
+            "priya sharma",
+        )
+        .unwrap();
+    store
+        .set_call_participants(
+            &id,
+            Some(&agent),
+            Some(&contact),
+            Some(chrono::Utc::now()),
+            ca_core::identity::AttributionSource::Rule,
+        )
+        .unwrap();
+
+    let model = Arc::new(StubModel::new());
+    let pipeline = pipeline_with(store.clone(), model.clone());
+    pipeline.run(&score_options(), |_| {}).await.unwrap();
+
+    let prompt = model.last_prompt.lock().unwrap().clone();
+    assert!(!prompt.is_empty(), "the model was never called");
+    for leaked in ["Babulal", "Kavaiya", "Priya", "Sharma", "babulal kavaiya"] {
+        assert!(
+            !prompt.contains(leaked),
+            "participant identity `{leaked}` reached a remote provider"
+        );
+    }
+}
