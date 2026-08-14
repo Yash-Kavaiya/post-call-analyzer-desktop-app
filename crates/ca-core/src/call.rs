@@ -1,5 +1,6 @@
 use crate::audio::{AcousticFeatures, AudioMeta};
-use crate::ids::CallId;
+use crate::identity::AttributionSource;
+use crate::ids::{CallId, PersonId};
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
@@ -81,6 +82,14 @@ pub struct Call {
     pub stage: CallStage,
     pub meta: Option<AudioMeta>,
     pub features: Option<AcousticFeatures>,
+    /// Who handled the call, once attributed.
+    pub agent_id: Option<PersonId>,
+    /// The other party, once attributed.
+    pub contact_id: Option<PersonId>,
+    /// When the call actually happened, as opposed to when it was ingested.
+    /// `created_at` stays ingest time and is never overwritten by this.
+    pub occurred_at: Option<DateTime<Utc>>,
+    pub attribution: AttributionSource,
     pub error: Option<String>,
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
@@ -102,6 +111,10 @@ impl Call {
             stage: CallStage::Discovered,
             meta: None,
             features: None,
+            agent_id: None,
+            contact_id: None,
+            occurred_at: None,
+            attribution: AttributionSource::None,
             error: None,
             created_at: now,
             updated_at: now,

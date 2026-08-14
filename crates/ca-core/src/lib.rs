@@ -9,6 +9,7 @@ pub mod analysis;
 pub mod audio;
 pub mod call;
 pub mod error;
+pub mod identity;
 pub mod ids;
 pub mod provider;
 pub mod transcript;
@@ -24,7 +25,8 @@ pub use audio::{
 };
 pub use call::{Call, CallStage};
 pub use error::{CaError, Result};
-pub use ids::{AnalysisId, CallId, FindingId, JobId, SegmentId};
+pub use identity::{AttributionSource, Person, PersonKind, Team};
+pub use ids::{AnalysisId, CallId, FindingId, JobId, PersonId, SegmentId, TeamId};
 pub use provider::{
     AgentContext, Caps, ChatRequest, ChatResponse, Diarizer, LlmProvider, Message, Role, Source,
     SourceItem, SourceKind, SpeakerTurn, TranscribeOptions, Transcriber,

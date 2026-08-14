@@ -48,3 +48,5 @@ id_type!(SegmentId, "seg");
 id_type!(AnalysisId, "an");
 id_type!(JobId, "job");
 id_type!(FindingId, "find");
+id_type!(PersonId, "person");
+id_type!(TeamId, "team");
