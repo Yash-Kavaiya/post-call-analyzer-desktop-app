@@ -73,6 +73,10 @@ impl HttpTransport {
     }
 
     fn post(&self, path: &str, body: &str) -> Result<String> {
+        self.request("POST", path, body)
+    }
+
+    fn request(&self, method: &str, path: &str, body: &str) -> Result<String> {
         let addr = format!("{}:{}", self.host, self.port);
         let stream = TcpStream::connect(&addr)
             .map_err(|e| CaError::Config(format!("connect {addr}: {e}")))?;
@@ -82,7 +86,7 @@ impl HttpTransport {
         let mut stream = stream;
         write!(
             stream,
-            "POST {path} HTTP/1.1\r\n\
+            "{method} {path} HTTP/1.1\r\n\
              Host: {}\r\n\
              Authorization: Bearer {}\r\n\
              Content-Type: application/json\r\n\
@@ -136,6 +140,16 @@ impl HttpTransport {
             )));
         }
         Ok(body)
+    }
+}
+
+impl HttpTransport {
+    /// Ask whether a peer is alive.
+    ///
+    /// Deliberately unauthenticated on both sides: a container healthcheck
+    /// holding a bearer token is a token in a process list.
+    pub fn health(&self) -> Result<()> {
+        self.request("GET", "/v1/health", "").map(|_| ())
     }
 }
 

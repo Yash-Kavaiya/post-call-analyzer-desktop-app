@@ -187,6 +187,13 @@ enum Command {
         #[arg(long, default_value_t = false)]
         allow_public: bool,
     },
+    /// Ask whether a sync server is alive. Used by the container healthcheck.
+    SyncHealth {
+        #[arg(long, default_value = "http://127.0.0.1:8480")]
+        url: String,
+    },
+    /// Copy every tenant's corpus, for a backup job.
+    BackupAll,
     /// List every tenant that has a corpus on this machine.
     Tenants,
     /// Create a tenant's corpus now rather than on first use.
@@ -759,6 +766,41 @@ Nothing was deleted. Re-run with --yes to go ahead."
                 },
                 tenants,
             )?;
+        }
+
+        Command::SyncHealth { url } => {
+            // No token: health is unauthenticated so a probe need not hold one.
+            let transport = ca_sync::HttpTransport::parse(&url, String::new())?;
+            match transport.health() {
+                Ok(()) => println!("ok"),
+                Err(e) => {
+                    eprintln!("unhealthy: {e}");
+                    std::process::exit(1);
+                }
+            }
+        }
+
+        Command::BackupAll => {
+            let base = ca_store::default_db_path();
+            let base = base.parent().map(|p| p.to_path_buf()).unwrap_or_default();
+            let tenants = ca_store::TenantStores::new(&base);
+            let stamp = chrono::Local::now().format("%Y%m%d-%H%M%S").to_string();
+
+            let listed = tenants.list()?;
+            if listed.is_empty() {
+                println!("no corpora to back up");
+            }
+            for t in listed {
+                match tenants.get(&t.slug).and_then(|s| s.backup(&stamp)) {
+                    Ok(Some(path)) => println!("{:<16} -> {}", t.slug, path.display()),
+                    Ok(None) => println!("{:<16} -> (in memory, nothing to copy)", t.slug),
+                    Err(e) => {
+                        // One tenant failing must not abandon the rest: a
+                        // partial backup is worth more than none.
+                        eprintln!("{:<16} -> FAILED: {e}", t.slug);
+                    }
+                }
+            }
         }
 
         Command::Tenants => {

@@ -1,0 +1,42 @@
+# A collector behind a TLS-terminating proxy.
+#
+# The proxy is not optional. `ca sync-server` speaks plain HTTP by design, and
+# the payload — scores tied to identifiable people — should not cross an
+# untrusted network in the clear.
+
+services:
+  collector:
+    build:
+      context: ..
+      dockerfile: deploy/Dockerfile
+    restart: unless-stopped
+    environment:
+      # `token=tenant`, comma separated. Keep these out of the compose file in
+      # anything real: use a secrets manager, or an env file that is not in git.
+      CA_SYNC_TOKENS: ${CA_SYNC_TOKENS:?set CA_SYNC_TOKENS, e.g. secret=acme}
+      RUST_LOG: ${RUST_LOG:-info}
+    volumes:
+      - corpora:/data
+    # Not published to the host: only the proxy may reach it.
+    expose:
+      - "8480"
+
+  proxy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    depends_on:
+      - collector
+    ports:
+      - "443:443"
+      - "80:80"
+    environment:
+      CA_DOMAIN: ${CA_DOMAIN:?set CA_DOMAIN to the hostname clients will use}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+
+volumes:
+  corpora:
+  caddy_data:
+  caddy_config:

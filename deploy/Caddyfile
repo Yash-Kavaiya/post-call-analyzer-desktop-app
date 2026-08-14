@@ -1,0 +1,22 @@
+# Terminates TLS and forwards to the collector.
+#
+# Caddy obtains and renews a certificate automatically, which is the whole
+# reason it is here rather than a hand-written nginx block.
+
+{$CA_DOMAIN} {
+	encode gzip
+
+	# Only the sync routes are exposed. Anything else is not a route the
+	# collector serves, and forwarding it would only widen the surface.
+	handle /v1/* {
+		reverse_proxy collector:8480 {
+			# The bearer token is the whole authentication story, so it has
+			# to survive the hop.
+			header_up Authorization {header.Authorization}
+		}
+	}
+
+	handle {
+		respond "not found" 404
+	}
+}

@@ -135,6 +135,14 @@ pub fn handle(
         }
     }
 
+    // Health is answered before authentication and before the body is read.
+    // A container probe and a load balancer both need it, and neither should
+    // have to hold a bearer token to ask whether the process is alive. It
+    // returns nothing but a literal `true` — there is no data to leak in it.
+    if path == "/v1/health" {
+        return reply(&mut stream, 200, &json!({"ok": true}));
+    }
+
     if method != "POST" {
         return reply(
             &mut stream,
@@ -191,7 +199,6 @@ pub fn handle(
                 .unwrap_or(BATCH as u64) as usize;
             pull(&store, since, limit.min(BATCH)).map(|r| json!(r))
         }
-        "/v1/health" => Ok(json!({"ok": true})),
         _ => return reply(&mut stream, 404, &json!({"error": "no such route"})),
     };
 
