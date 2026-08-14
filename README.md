@@ -42,6 +42,24 @@
 - 🖥️ **Windows Desktop App** — Tauri 2 + React, native feel
 - 🔐 **Credential Manager** — API keys stored securely, never exposed to the UI
 
+### Phase 4a — Participant Identity ✅
+
+Who was on the call, on both sides — the column every per-agent rollup and
+every repeat-contact question needs. See
+[docs/PHASE4A_IDENTITY.md](docs/PHASE4A_IDENTITY.md).
+
+- 👤 **Agents and contacts** — derived from the filename, corrected by hand,
+  or taken from a live session, with the provenance recorded so a backfill
+  never overwrites a correction
+- 🕓 **Real call time** — parsed from the same filename, because `created_at`
+  is ingest time and a bulk scan gives 1,967 calls the same date
+- 🔁 **Repeat-contact rate** — the share of calls whose contact also called in
+  the previous 30 days, computable without any analysis at all
+- 📈 **Per-person trends** — QA and sentiment by month, absent measures shown
+  as a dash rather than invented as a zero
+- 🔒 **Local-only** — identity is the same class of data as the redaction map;
+  a test asserts a participant's name never reaches a provider
+
 ### Phase 3 — Live Call Assist ✅
 
 Capture a call as it happens and surface breaches while the agent can still act
@@ -258,10 +276,16 @@ Launch the Tauri desktop app to:
 - [x] Phase 2: Multi-agent battery (QA, sentiment, compliance, root cause, action items, coaching, CX, exec summary)
 - [x] Phase 3: Live call assist (two-stream capture, live transcript, deterministic alerts, live monitor)
 - [ ] Phase 4: Multi-tenant & cloud deployment
+  - [x] 4a: Participant identity (agents, contacts, real call time, repeat-contact rate)
+  - [ ] 4b: Roles and scoped views
+  - [ ] 4c: Sync server
+  - [ ] 4d: Tenant isolation
+  - [ ] 4e: Deployment
 - [ ] Phase 5: Plugin system for custom agents
 
-See [docs/PHASE2_AGENTS.md](docs/PHASE2_AGENTS.md) and
-[docs/PHASE3_LIVE.md](docs/PHASE3_LIVE.md) for details.
+See [docs/PHASE2_AGENTS.md](docs/PHASE2_AGENTS.md),
+[docs/PHASE3_LIVE.md](docs/PHASE3_LIVE.md) and
+[docs/PHASE4A_IDENTITY.md](docs/PHASE4A_IDENTITY.md) for details.
 
 ---
 

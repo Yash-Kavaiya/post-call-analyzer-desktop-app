@@ -286,21 +286,42 @@ pub struct CallPeople {
     pub contact_calls: Option<usize>,
 }
 
+/// The identity columns on `calls`, named so the row type stays readable.
+struct CallRow {
+    agent_id: Option<String>,
+    contact_id: Option<String>,
+    attribution: String,
+    occurred_at: Option<String>,
+}
+
 impl Store {
     /// The participants on a call, for the detail screen.
     pub fn call_people(&self, call_id: &CallId) -> Result<CallPeople> {
         let conn = self.lock()?;
-        let row: Option<(Option<String>, Option<String>, String, Option<String>)> = conn
+        let row: Option<CallRow> = conn
             .query_row(
                 "SELECT c.agent_id, c.contact_id, c.attribution, c.occurred_at
                    FROM calls c WHERE c.id = ?1",
                 [call_id.as_str()],
-                |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?)),
+                |r| {
+                    Ok(CallRow {
+                        agent_id: r.get(0)?,
+                        contact_id: r.get(1)?,
+                        attribution: r.get(2)?,
+                        occurred_at: r.get(3)?,
+                    })
+                },
             )
             .optional()
             .map_err(|e| CaError::Storage(format!("call people: {e}")))?;
 
-        let Some((agent_id, contact_id, attribution, occurred_at)) = row else {
+        let Some(CallRow {
+            agent_id,
+            contact_id,
+            attribution,
+            occurred_at,
+        }) = row
+        else {
             return Ok(CallPeople::default());
         };
 
