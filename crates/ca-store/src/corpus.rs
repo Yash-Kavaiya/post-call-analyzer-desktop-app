@@ -152,6 +152,29 @@ impl Store {
             }
         }
 
+        // Participants live on `calls`, not in a payload, so they are filled in
+        // with one pass rather than joined per analysis row.
+        let mut who = conn
+            .prepare("SELECT id, agent_id, contact_id FROM calls WHERE agent_id IS NOT NULL OR contact_id IS NOT NULL")
+            .map_err(|e| CaError::Storage(format!("prepare participants: {e}")))?;
+        let rows = who
+            .query_map([], |r| {
+                Ok((
+                    r.get::<_, String>(0)?,
+                    r.get::<_, Option<String>>(1)?,
+                    r.get::<_, Option<String>>(2)?,
+                ))
+            })
+            .map_err(|e| CaError::Storage(format!("query participants: {e}")))?;
+        for row in rows {
+            let (call_id, agent_id, contact_id) =
+                row.map_err(|e| CaError::Storage(format!("participant row: {e}")))?;
+            if let Some(facts) = by_call.get_mut(&call_id) {
+                facts.agent_id = agent_id;
+                facts.contact_id = contact_id;
+            }
+        }
+
         let mut out: Vec<CallFacts> = by_call.into_values().collect();
         // Stable order so two reports on an unchanged corpus are identical.
         out.sort_by(|a, b| a.call_id.cmp(&b.call_id));

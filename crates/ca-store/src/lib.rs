@@ -5,17 +5,21 @@
 //! batch running across many worker threads shares one connection rather than
 //! opening a file handle per call.
 
+pub mod attribute;
 pub mod corpus;
 pub mod findings;
 pub mod observability;
 pub mod payload;
+pub mod people;
 pub mod runs;
 pub mod schema;
 pub mod settings;
 pub mod timeline;
 
+pub use attribute::{AttributeOptions, AttributeReport};
 pub use findings::{FindingCount, StoredFinding};
 pub use observability::{AgentHealth, AgentRun};
+pub use people::PersonSummary;
 pub use runs::{RunItem, RunSummary};
 
 use ca_core::analysis::{Analysis, Finding};
@@ -834,6 +838,7 @@ fn parse_stage(s: &str) -> Option<CallStage> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use ca_core::identity::{AttributionSource, PersonKind};
 
     fn call(key: &str) -> Call {
         Call::new(key, "local", format!("call {key}"))
@@ -1148,5 +1153,213 @@ mod tests {
             s.list_calls(0, 10, None).unwrap()[0].compliance_passed,
             Some(true)
         );
+    }
+
+    // ------------------------------------------------------ participants
+
+    fn named_call(name: &str) -> Call {
+        Call::new(format!("C:/calls/{name}"), "local", name)
+    }
+
+    #[test]
+    fn a_person_is_created_once_per_handle_and_kind() {
+        let s = Store::in_memory().unwrap();
+        let a = s
+            .upsert_person(PersonKind::Contact, "Babulal Kavaiya", "babulal kavaiya")
+            .unwrap();
+        let b = s
+            .upsert_person(PersonKind::Contact, "BABULAL KAVAIYA", "babulal kavaiya")
+            .unwrap();
+        assert_eq!(a, b, "same handle and kind is the same person");
+
+        // The same handle on the other side of the call is a different person.
+        let c = s
+            .upsert_person(PersonKind::Agent, "Babulal Kavaiya", "babulal kavaiya")
+            .unwrap();
+        assert_ne!(a, c);
+    }
+
+    #[test]
+    fn attributing_a_call_stores_both_sides_the_time_and_the_provenance() {
+        let s = Store::in_memory().unwrap();
+        let id = s.upsert_call(&call("k1")).unwrap();
+        let contact = s
+            .upsert_person(PersonKind::Contact, "+91848", "+91848")
+            .unwrap();
+        let when = chrono::Utc::now();
+
+        s.set_call_participants(
+            &id,
+            None,
+            Some(&contact),
+            Some(when),
+            AttributionSource::Rule,
+        )
+        .unwrap();
+
+        assert_eq!(s.call_attribution(&id).unwrap(), AttributionSource::Rule);
+        let listed = s.list_people(Some(PersonKind::Contact), None).unwrap();
+        assert_eq!(listed.len(), 1);
+        assert_eq!(listed[0].calls, 1);
+    }
+
+    /// The recording is the record: removing someone from the roster must not
+    /// delete the calls they were on.
+    #[test]
+    fn deleting_a_person_leaves_the_call_in_place() {
+        let s = Store::in_memory().unwrap();
+        let id = s.upsert_call(&call("k2")).unwrap();
+        let p = s
+            .upsert_person(PersonKind::Agent, "Priya", "priya")
+            .unwrap();
+        s.set_call_participants(&id, Some(&p), None, None, AttributionSource::Manual)
+            .unwrap();
+
+        s.lock()
+            .unwrap()
+            .execute("DELETE FROM people WHERE id = ?1", [p.as_str()])
+            .unwrap();
+
+        assert_eq!(s.count_calls().unwrap(), 1);
+        assert_eq!(s.call_attribution(&id).unwrap(), AttributionSource::Manual);
+    }
+
+    #[test]
+    fn the_backfill_attributes_recognisable_names_and_leaves_the_rest_alone() {
+        let s = Store::in_memory().unwrap();
+        s.upsert_call(&named_call(
+            "Call recording +918485823280_251112_142326.m4a",
+        ))
+        .unwrap();
+        s.upsert_call(&named_call(
+            "Call recording +918485823280_251114_204226.m4a",
+        ))
+        .unwrap();
+        s.upsert_call(&named_call("holiday video.mp4")).unwrap();
+
+        let r = s
+            .attribute_calls(&ca_identity::builtin_patterns(), Default::default())
+            .unwrap();
+
+        assert_eq!(r.scanned, 3);
+        assert_eq!(r.attributed, 2);
+        assert_eq!(r.unmatched, 1);
+        // Two calls, one contact.
+        let contacts = s.list_people(Some(PersonKind::Contact), None).unwrap();
+        assert_eq!(contacts.len(), 1);
+        assert_eq!(contacts[0].calls, 2);
+    }
+
+    #[test]
+    fn the_backfill_is_idempotent() {
+        let s = Store::in_memory().unwrap();
+        s.upsert_call(&named_call(
+            "Call recording +918485823280_251112_142326.m4a",
+        ))
+        .unwrap();
+
+        let first = s
+            .attribute_calls(&ca_identity::builtin_patterns(), Default::default())
+            .unwrap();
+        let second = s
+            .attribute_calls(&ca_identity::builtin_patterns(), Default::default())
+            .unwrap();
+
+        assert_eq!(first.attributed, 1);
+        assert_eq!(
+            second.attributed, 1,
+            "re-running re-derives the same answer"
+        );
+        assert_eq!(
+            s.list_people(None, None).unwrap().len(),
+            1,
+            "no duplicate people"
+        );
+    }
+
+    /// The reason the `attribution` column exists at all.
+    #[test]
+    fn a_manual_assignment_survives_a_later_backfill() {
+        let s = Store::in_memory().unwrap();
+        let id = s
+            .upsert_call(&named_call(
+                "Call recording +918485823280_251112_142326.m4a",
+            ))
+            .unwrap();
+        let chosen = s
+            .upsert_person(PersonKind::Contact, "Real Name", "real name")
+            .unwrap();
+        s.set_call_participants(&id, None, Some(&chosen), None, AttributionSource::Manual)
+            .unwrap();
+
+        let r = s
+            .attribute_calls(&ca_identity::builtin_patterns(), Default::default())
+            .unwrap();
+
+        assert_eq!(r.skipped_manual, 1);
+        assert_eq!(r.attributed, 0);
+        assert_eq!(s.call_attribution(&id).unwrap(), AttributionSource::Manual);
+    }
+
+    #[test]
+    fn force_overrides_a_manual_assignment_and_dry_run_changes_nothing() {
+        let s = Store::in_memory().unwrap();
+        let id = s
+            .upsert_call(&named_call(
+                "Call recording +918485823280_251112_142326.m4a",
+            ))
+            .unwrap();
+        s.set_call_participants(&id, None, None, None, AttributionSource::Manual)
+            .unwrap();
+
+        let dry = s
+            .attribute_calls(
+                &ca_identity::builtin_patterns(),
+                AttributeOptions {
+                    dry_run: true,
+                    force: true,
+                },
+            )
+            .unwrap();
+        assert_eq!(dry.attributed, 1);
+        assert_eq!(
+            s.call_attribution(&id).unwrap(),
+            AttributionSource::Manual,
+            "a dry run writes nothing"
+        );
+
+        s.attribute_calls(
+            &ca_identity::builtin_patterns(),
+            AttributeOptions {
+                dry_run: false,
+                force: true,
+            },
+        )
+        .unwrap();
+        assert_eq!(s.call_attribution(&id).unwrap(), AttributionSource::Rule);
+    }
+
+    /// The rollup query has to find a person on either side of the call.
+    #[test]
+    fn person_call_refs_carry_the_real_call_time() {
+        let s = Store::in_memory().unwrap();
+        s.upsert_call(&named_call(
+            "Call recording +918485823280_251112_142326.m4a",
+        ))
+        .unwrap();
+        s.attribute_calls(&ca_identity::builtin_patterns(), Default::default())
+            .unwrap();
+
+        let contact = s.list_people(Some(PersonKind::Contact), None).unwrap();
+        let refs = s
+            .person_call_refs(&ca_core::ids::PersonId::from(contact[0].id.clone()))
+            .unwrap();
+
+        assert_eq!(refs.len(), 1);
+        assert!(
+            refs[0].occurred_at.is_some(),
+            "the call time came from the filename"
+        );
+        assert_eq!(refs[0].qa_overall, None, "nothing analysed means no score");
     }
 }

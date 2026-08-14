@@ -16,6 +16,12 @@
 //! - A minimum effect size, so the list is not padded with noise that happens
 //!   to be non-zero.
 
+pub mod person;
+
+pub use person::{
+    monthly_trend, person_facts, repeat_contact_rate, CallRef, MonthPoint, PersonFacts,
+};
+
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
@@ -64,6 +70,11 @@ pub struct CallFacts {
     /// The root-cause agent's coarse bucket: billing, product, process, agent
     /// or other. Free-text causes do not aggregate; these do.
     pub root_cause_category: Option<String>,
+    /// Who handled the call, when it has been attributed. Lets a corpus report
+    /// be scoped to one person or team without a second query.
+    pub agent_id: Option<String>,
+    /// The other party, when attributed.
+    pub contact_id: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]

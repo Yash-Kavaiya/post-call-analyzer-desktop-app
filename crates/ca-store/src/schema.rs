@@ -258,6 +258,63 @@ CREATE TABLE channel_timelines (
 );
 "#,
     ),
+    (
+        "0006_people",
+        r#"
+-- Who was on the call.
+--
+-- The corpus was keyed by file path, so it could say what a call scored but
+-- never whose call it was. Every per-agent rollup and every repeat-contact
+-- question needs this table to exist first.
+--
+-- Local-only, the same class of data as `redaction_map`: these are exactly the
+-- names and numbers the transcript pipeline scrubs before a provider sees a
+-- call, so identity must not become a second way for them to leave.
+CREATE TABLE teams (
+    id         TEXT PRIMARY KEY,
+    name       TEXT NOT NULL,
+    created_at TEXT NOT NULL
+);
+
+CREATE UNIQUE INDEX idx_teams_name ON teams(name);
+
+CREATE TABLE people (
+    id           TEXT PRIMARY KEY,
+    -- agent | contact
+    kind         TEXT NOT NULL,
+    display_name TEXT NOT NULL,
+    -- Normalised identity key: digits for numbers, folded text for names.
+    handle       TEXT NOT NULL,
+    team_id      TEXT REFERENCES teams(id) ON DELETE SET NULL,
+    created_at   TEXT NOT NULL,
+    updated_at   TEXT NOT NULL
+);
+
+-- The same number may be an agent on one call and a contact on another, so
+-- identity is the pair rather than the handle alone.
+CREATE UNIQUE INDEX idx_people_handle ON people(kind, handle);
+CREATE INDEX idx_people_team ON people(team_id);
+
+-- SET NULL rather than the CASCADE used elsewhere: removing someone from the
+-- roster must not erase their calls. The recording is the record.
+ALTER TABLE calls ADD COLUMN agent_id   TEXT REFERENCES people(id) ON DELETE SET NULL;
+ALTER TABLE calls ADD COLUMN contact_id TEXT REFERENCES people(id) ON DELETE SET NULL;
+
+-- When the call happened, as opposed to when it was ingested. `created_at`
+-- keeps its meaning and is never overwritten: 1,967 of the 1,972 calls in the
+-- reference corpus share one ingest date, which is the whole reason a separate
+-- column has to exist.
+ALTER TABLE calls ADD COLUMN occurred_at TEXT;
+
+-- none | rule | manual | live. Load-bearing rather than decorative: the
+-- backfill skips `manual`, so a correction made by hand survives the next run.
+ALTER TABLE calls ADD COLUMN attribution TEXT NOT NULL DEFAULT 'none';
+
+CREATE INDEX idx_calls_agent    ON calls(agent_id, occurred_at);
+CREATE INDEX idx_calls_contact  ON calls(contact_id, occurred_at);
+CREATE INDEX idx_calls_occurred ON calls(occurred_at DESC);
+"#,
+    ),
 ];
 
 pub fn open(path: &std::path::Path) -> Result<Connection> {

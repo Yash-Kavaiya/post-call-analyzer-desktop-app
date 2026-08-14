@@ -7,6 +7,7 @@ license.workspace = true
 
 [dependencies]
 ca-core.workspace = true
+ca-identity.workspace = true
 ca-insights.workspace = true
 ca-metrics.workspace = true
 ca-privacy.workspace = true
