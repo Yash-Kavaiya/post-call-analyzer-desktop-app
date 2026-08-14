@@ -354,6 +354,7 @@ dependencies = [
  "ca-llm",
  "ca-pipeline",
  "ca-store",
+ "ca-sync",
  "chrono",
  "clap",
  "serde_json",
@@ -530,6 +531,19 @@ dependencies = [
  "ca-privacy",
  "chrono",
  "rusqlite",
+ "serde",
+ "serde_json",
+ "tracing",
+]
+
+[[package]]
+name = "ca-sync"
+version = "0.1.0"
+dependencies = [
+ "ca-core",
+ "ca-identity",
+ "ca-store",
+ "chrono",
  "serde",
  "serde_json",
  "tracing",

@@ -332,6 +332,40 @@ ALTER TABLE people ADD COLUMN role TEXT NOT NULL DEFAULT 'agent';
 CREATE INDEX idx_people_role ON people(role);
 "#,
     ),
+    (
+        "0008_sync",
+        r#"
+-- Metrics received from, or queued for, a sync peer.
+--
+-- Only ever holds what `ca_sync::SyncRecord` allows: scores, counts, opaque
+-- participant ids and finding codes. No transcript, no name, no number. The
+-- payload is stored as JSON because the shape is owned by the protocol, and a
+-- column per metric would need a migration every time an agent gains one.
+CREATE TABLE sync_records (
+    -- Monotonic, server-assigned. The pull cursor is a position in this
+    -- sequence, which is why it is an INTEGER PRIMARY KEY and not a timestamp:
+    -- two records written in the same millisecond must still be orderable.
+    seq          INTEGER PRIMARY KEY AUTOINCREMENT,
+    call_id      TEXT NOT NULL,
+    payload_json TEXT NOT NULL,
+    received_at  TEXT NOT NULL
+);
+
+-- One row per call: a re-push replaces rather than appends, so a client that
+-- retries after a timeout cannot double-count a call in a rollup.
+CREATE UNIQUE INDEX idx_sync_records_call ON sync_records(call_id);
+
+-- How far this machine has got with each peer.
+CREATE TABLE sync_state (
+    peer          TEXT PRIMARY KEY,
+    -- Highest `calls.updated_at` already pushed.
+    pushed_through TEXT,
+    -- Highest server `seq` already pulled.
+    pulled_through INTEGER NOT NULL DEFAULT 0,
+    updated_at     TEXT NOT NULL
+);
+"#,
+    ),
 ];
 
 pub fn open(path: &std::path::Path) -> Result<Connection> {

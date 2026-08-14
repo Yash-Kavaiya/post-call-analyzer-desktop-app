@@ -149,6 +149,44 @@ enum Command {
         #[arg(long, default_value_t = 8479)]
         port: u16,
     },
+    /// Push local call metrics to a peer, then pull back what it has.
+    ///
+    /// Sends scores, counts, finding codes and opaque participant ids. Never
+    /// transcripts, names or numbers — see docs/PHASE4_SERVER.md.
+    Sync {
+        /// Peer base URL, e.g. http://127.0.0.1:8480
+        url: String,
+        /// Bearer token. Reads CA_SYNC_TOKEN when omitted, so a token need not
+        /// appear in shell history or a process list.
+        #[arg(long)]
+        token: Option<String>,
+        /// Name for this peer in the local sync state, so several peers
+        /// advance independently.
+        #[arg(long, default_value = "default")]
+        peer: String,
+        /// push, pull or both. A machine feeding a dashboard pushes; pulling
+        /// would fetch its own records straight back.
+        #[arg(long, default_value = "push")]
+        mode: String,
+    },
+    /// Receive metrics from other machines.
+    ///
+    /// Speaks plain HTTP. Terminate TLS in front of it; binding anything other
+    /// than loopback requires --allow-public.
+    SyncServer {
+        #[arg(long, default_value_t = 8480)]
+        port: u16,
+        /// Bind address. Loopback unless --allow-public is given.
+        #[arg(long, default_value = "127.0.0.1")]
+        host: String,
+        /// `token=tenant`, repeatable. Reads CA_SYNC_TOKENS when omitted, in
+        /// the same comma-separated form.
+        #[arg(long = "token")]
+        tokens: Vec<String>,
+        /// Bind a non-loopback address, having arranged TLS in front.
+        #[arg(long, default_value_t = false)]
+        allow_public: bool,
+    },
     /// List every tenant that has a corpus on this machine.
     Tenants,
     /// Create a tenant's corpus now rather than on first use.
@@ -639,6 +677,90 @@ Nothing was deleted. Re-run with --yes to go ahead."
                 report.calls, report.transcripts, report.analyses, report.findings, report.people,
             );
         }
+        Command::Sync {
+            url,
+            token,
+            peer,
+            mode,
+        } => {
+            let Some(direction) = ca_sync::Direction::parse(&mode) else {
+                eprintln!("unknown mode `{mode}` — use push, pull or both");
+                std::process::exit(2);
+            };
+            let token = token
+                .or_else(|| std::env::var("CA_SYNC_TOKEN").ok())
+                .ok_or("no token — pass --token or set CA_SYNC_TOKEN")?;
+            let transport = ca_sync::HttpTransport::parse(&url, token)?;
+            let sync = ca_sync::SyncPeer::new(store.clone(), &peer, Box::new(transport));
+
+            let outcome = sync.sync_with(direction)?;
+            println!(
+                "pushed {}, pulled {}, withheld {}, rejected {}",
+                outcome.pushed, outcome.pulled, outcome.withheld, outcome.rejected
+            );
+            if outcome.withheld > 0 {
+                // Loud, because it means a record looked like it carried call
+                // content and the local guard stopped it.
+                eprintln!(
+                    "warning: {} record(s) were withheld for carrying call content",
+                    outcome.withheld
+                );
+            }
+        }
+
+        Command::SyncServer {
+            port,
+            host,
+            tokens,
+            allow_public,
+        } => {
+            let raw = if tokens.is_empty() {
+                std::env::var("CA_SYNC_TOKENS")
+                    .unwrap_or_default()
+                    .split(',')
+                    .map(str::to_string)
+                    .filter(|s| !s.trim().is_empty())
+                    .collect()
+            } else {
+                tokens
+            };
+
+            let mut map = ca_sync::TokenMap::new();
+            for pair in raw {
+                let Some((token, tenant)) = pair.split_once('=') else {
+                    eprintln!("--token must look like `secret=tenant`, got `{pair}`");
+                    std::process::exit(2);
+                };
+                ca_store::validate_slug(tenant)?;
+                map.insert(token.trim().to_string(), tenant.trim().to_string());
+            }
+            if map.is_empty() {
+                eprintln!("no tokens — pass --token secret=tenant or set CA_SYNC_TOKENS");
+                std::process::exit(2);
+            }
+
+            let base = ca_store::default_db_path();
+            let base = base.parent().map(|p| p.to_path_buf()).unwrap_or_default();
+            let tenants = std::sync::Arc::new(ca_store::TenantStores::new(&base));
+
+            let addr: std::net::SocketAddr = format!("{host}:{port}")
+                .parse()
+                .map_err(|e| format!("bad address {host}:{port}: {e}"))?;
+            println!("sync server on http://{addr}");
+            println!("tenants served: {}", map.len());
+            if allow_public {
+                println!("WARNING: plain HTTP on a public address — terminate TLS in front");
+            }
+            ca_sync::server::serve(
+                ca_sync::ServerConfig {
+                    addr,
+                    tokens: map,
+                    allow_public,
+                },
+                tenants,
+            )?;
+        }
+
         Command::Tenants => {
             let base = ca_store::default_db_path();
             let base = base.parent().map(|p| p.to_path_buf()).unwrap_or_default();
