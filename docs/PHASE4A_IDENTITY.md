@@ -177,6 +177,46 @@ When 4c syncs anything, it syncs person **IDs**, never names.
   People screen reports how many matched no pattern rather than dropping them
   from totals.
 
+## Resetting
+
+```bash
+ca reset --scope analyses      # scores and findings; transcripts kept
+ca reset --scope transcripts   # also the text; calls return to `discovered`
+ca reset --scope all           # empty the corpus; settings kept
+```
+
+A bare `ca reset` deletes nothing — it prints what would go, which is usually
+enough to change your mind about the scope. Add `--yes` to proceed. The database
+is copied first; `--no-backup` skips that, and a *failed* backup aborts rather
+than continuing, because an unbacked-up reset is a riskier operation than the
+one that was asked for.
+
+The same thing lives in **Settings → Reset data**, which additionally requires
+typing the scope name. A second "are you sure?" button is a reflex to click.
+
+Audio files are never touched by any scope. Settings survive all three: they are
+configuration, not corpus.
+
+## Development against the real corpus
+
+`npm run dev` runs the UI in a browser, where there is no Tauri runtime. It used
+to draw every screen from invented fixtures, which is fine for checking a layout
+and misleading for everything else — a list that looks right on nine
+hand-written rows can be wrong on 1,972 real ones.
+
+```bash
+ca serve          # loopback only, port 8479
+npm run dev       # in apps/desktop/ui
+```
+
+With the bridge running the UI reads the real database. A badge in the corner
+says `dev · real corpus` or `dev · fixture data`, and any command the bridge
+does not implement names itself in the console rather than silently mixing real
+and invented data.
+
+This is a development tool. The desktop app talks to the same `Store`
+in-process and never over a socket.
+
 ## Testing
 
 ```bash
