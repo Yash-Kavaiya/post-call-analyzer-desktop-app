@@ -26,11 +26,13 @@
 pub mod client;
 pub mod http;
 pub mod record;
+pub mod rollup;
 pub mod server;
 
 pub use client::{Direction, SyncOutcome, SyncPeer, Transport};
 pub use http::HttpTransport;
 pub use record::{FindingMetric, PullResponse, PushRequest, PushResponse, SyncRecord};
+pub use rollup::{summarise, summarise_store, AgentRollup, CodeRollup, MonthRollup, Rollup};
 pub use server::{ServerConfig, TokenMap};
 
 /// Largest request body the server will read, in bytes.

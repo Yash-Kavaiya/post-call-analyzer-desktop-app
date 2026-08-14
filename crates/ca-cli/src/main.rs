@@ -228,6 +228,20 @@ enum Command {
     /// Prints the shape asked of the model, so a plugin can be reviewed before
     /// it is ever pointed at a corpus or a metered provider.
     PluginCheck { file: PathBuf },
+    /// Read the collector's rollup for this tenant.
+    ///
+    /// The collector holds metrics, not a corpus: it can say an agent's mean
+    /// score and which codes recur, and it cannot show a transcript because it
+    /// does not have one.
+    SyncReport {
+        url: String,
+        #[arg(long)]
+        token: Option<String>,
+        #[arg(long, default_value_t = 12)]
+        agents: usize,
+        #[arg(long, default_value_t = false)]
+        json: bool,
+    },
     /// Ask whether a sync server is alive. Used by the container healthcheck.
     SyncHealth {
         #[arg(long, default_value = "http://127.0.0.1:8480")]
@@ -999,6 +1013,93 @@ Nothing was deleted. Re-run with --yes to go ahead."
                 Err(e) => {
                     eprintln!("{}: {e}", file.display());
                     std::process::exit(1);
+                }
+            }
+        }
+
+        Command::SyncReport {
+            url,
+            token,
+            agents,
+            json,
+        } => {
+            let token = token
+                .or_else(|| std::env::var("CA_SYNC_TOKEN").ok())
+                .ok_or("no token — pass --token or set CA_SYNC_TOKEN")?;
+            let report = ca_sync::HttpTransport::parse(&url, token)?.report(100_000)?;
+
+            if json {
+                println!("{}", serde_json::to_string_pretty(&report)?);
+                return Ok(());
+            }
+
+            // A dash, never a zero: the collector routinely holds calls that
+            // nobody has scored, and a 0 there reads as a terrible team.
+            let num = |v: Option<f32>, digits: usize, suffix: &str| match v {
+                Some(x) => format!("{x:.*}{suffix}", digits),
+                None => "-".to_string(),
+            };
+
+            println!("calls              : {}", report.calls);
+            println!(
+                "  scored           : {} ({} carry no QA score)",
+                report.scored_calls,
+                report.calls - report.scored_calls
+            );
+            if report.calls_without_a_time > 0 {
+                println!(
+                    "  undated          : {} (absent from the monthly view)",
+                    report.calls_without_a_time
+                );
+            }
+            println!("mean QA            : {}", num(report.mean_qa, 1, "%"));
+            println!("mean sentiment     : {}", num(report.mean_sentiment, 2, ""));
+            println!(
+                "compliance pass    : {}",
+                num(report.compliance_pass_rate.map(|v| v * 100.0), 0, "%")
+            );
+
+            if !report.agents.is_empty() {
+                println!();
+                println!(
+                    "{:<34} {:>6} {:>8} {:>8}",
+                    "AGENT", "CALLS", "MEAN QA", "FAILING"
+                );
+                for a in report.agents.iter().take(agents) {
+                    println!(
+                        "{:<34} {:>6} {:>8} {:>8}",
+                        clip(&a.agent_id, 34),
+                        a.calls,
+                        num(a.mean_qa, 1, ""),
+                        a.failing_calls
+                    );
+                }
+                println!("(ids, not names — the collector never receives one)");
+            }
+
+            if !report.codes.is_empty() {
+                println!();
+                println!("{:<32} {:<10} {:>6}", "CODE", "SEVERITY", "CALLS");
+                for c in report.codes.iter().take(12) {
+                    println!(
+                        "{:<32} {:<10} {:>6}",
+                        clip(&c.code, 32),
+                        c.severity,
+                        c.calls
+                    );
+                }
+            }
+
+            if !report.months.is_empty() {
+                println!();
+                println!("{:<10} {:>6} {:>8}", "MONTH", "CALLS", "MEAN QA");
+                for m in &report.months {
+                    println!(
+                        "{:<10} {:>6} {:>8}",
+                        m.month,
+                        m.calls,
+                        num(m.mean_qa, 1, "")
+                    );
                 }
             }
         }

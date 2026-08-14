@@ -115,14 +115,40 @@ The client's watermark is `calls.updated_at` rather than a local sequence, so a
 corpus restored from a backup re-pushes what the peer may have missed instead
 of silently resuming past it.
 
+## Reading what the collector holds
+
+A collector that receives records nothing reads is a landfill, not a dashboard.
+
+```bash
+CA_SYNC_TOKEN=SECRET ca sync-report https://sync.example.com
+CA_SYNC_TOKEN=SECRET ca sync-report https://sync.example.com --json
+```
+
+It reports totals, per-agent rollups, recurring finding codes ranked
+blocking-first then by reach, and a monthly trend — computed server-side from
+the stored metrics and returned to the authenticated tenant.
+
+Two properties matter more here than anywhere else, because this is the view
+furthest from the raw call:
+
+- **Absent is not zero.** Against the reference corpus the report reads
+  `scored: 7 (1965 carry no QA score)`, and months with nothing scored show
+  `-`. A dashboard reporting a mean of 0 for a corpus nobody has scored is
+  indistinguishable from one reporting a genuinely terrible team.
+- **Agents are ids.** The collector has no `people` table and never receives
+  one, so the report names `person_a1b2c3`. An operator can see that one agent
+  is struggling without learning who they are.
+
 ## Known limitations
 
 - **No TLS in-process.** Stated above; use a proxy.
+- **No browser dashboard.** The report is an authenticated API call and a CLI
+  view. A browser page would need the bearer token in a URL or a cookie
+  session, and putting a token in a URL puts it in every proxy log.
 - **Tokens are static**, passed as flags or `CA_SYNC_TOKENS`. There is no
   rotation flow and no per-agent identity on the server.
 - **The server stores metrics, not a corpus.** It cannot show a transcript
-  because it does not have one — by design, and the reason there is no server
-  UI yet.
+  because it does not have one — by design.
 - **No cross-tenant reporting.** A direct consequence of one file per tenant.
 
 ## Testing
@@ -131,7 +157,11 @@ of silently resuming past it.
 cargo test -p ca-sync
 ```
 
-29 tests: the protocol and guard in isolation, the client loop against an
-in-memory peer, and five that run a real client against a real server over a
-real socket — including that two tokens write to two separate corpora and that
-a forged token gets a 401.
+40 tests: the protocol and guard in isolation, the rollup arithmetic, the
+client loop against an in-memory peer, and five that run a real client against
+a real server over a real socket — including that two tokens write to two
+separate corpora and that a forged token gets a 401.
+
+Verified end to end against the reference corpus: 1,972 calls pushed in one
+run, and the report read back with 7 scored, a mean over those 7, and eleven of
+twelve months correctly showing no score rather than zero.

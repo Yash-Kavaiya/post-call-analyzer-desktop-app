@@ -144,6 +144,13 @@ impl HttpTransport {
 }
 
 impl HttpTransport {
+    /// Fetch the peer's rollup of everything it holds for this tenant.
+    pub fn report(&self, limit: usize) -> Result<crate::rollup::Rollup> {
+        let body = serde_json::json!({ "limit": limit }).to_string();
+        let response = self.post("/v1/report", &body)?;
+        serde_json::from_str(&response).map_err(|e| CaError::Config(format!("decode report: {e}")))
+    }
+
     /// Ask whether a peer is alive.
     ///
     /// Deliberately unauthenticated on both sides: a container healthcheck

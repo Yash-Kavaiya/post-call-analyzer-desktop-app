@@ -190,6 +190,11 @@ pub fn handle(
             Ok(req) => push(&store, req).map(|r| json!(r)),
             Err(e) => return reply(&mut stream, 400, &json!({"error": e.to_string()})),
         },
+        "/v1/report" => {
+            let args: Value = serde_json::from_slice(&body).unwrap_or(json!({}));
+            let limit = args.get("limit").and_then(Value::as_u64).unwrap_or(100_000) as usize;
+            crate::rollup::summarise_store(&store, limit).map(|r| json!(r))
+        }
         "/v1/sync/pull" => {
             let args: Value = serde_json::from_slice(&body).unwrap_or(json!({}));
             let since = args.get("since").and_then(Value::as_i64).unwrap_or(0);
