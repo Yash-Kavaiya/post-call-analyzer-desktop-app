@@ -1362,4 +1362,39 @@ mod tests {
         );
         assert_eq!(refs[0].qa_overall, None, "nothing analysed means no score");
     }
+
+    /// Reassigning by hand must not discard the call time.
+    ///
+    /// Routing a manual assignment through `set_call_participants` would pass
+    /// `None` for the time and silently erase an `occurred_at` the filename had
+    /// already given correctly.
+    #[test]
+    fn assigning_people_by_hand_leaves_the_call_time_intact() {
+        let s = Store::in_memory().unwrap();
+        let id = s
+            .upsert_call(&named_call(
+                "Call recording +918485823280_251112_142326.m4a",
+            ))
+            .unwrap();
+        s.attribute_calls(&ca_identity::builtin_patterns(), Default::default())
+            .unwrap();
+
+        let contact = s.list_people(Some(PersonKind::Contact), None).unwrap();
+        let before = s
+            .person_call_refs(&ca_core::ids::PersonId::from(contact[0].id.clone()))
+            .unwrap()[0]
+            .occurred_at;
+        assert!(before.is_some());
+
+        let chosen = s
+            .upsert_person(PersonKind::Contact, "Real Name", "real name")
+            .unwrap();
+        s.assign_call_people(&id, None, Some(&chosen), AttributionSource::Manual)
+            .unwrap();
+
+        let after = s.person_call_refs(&chosen).unwrap();
+        assert_eq!(after.len(), 1);
+        assert_eq!(after[0].occurred_at, before, "the call time survived");
+        assert_eq!(s.call_attribution(&id).unwrap(), AttributionSource::Manual);
+    }
 }

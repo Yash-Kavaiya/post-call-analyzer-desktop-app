@@ -20,6 +20,7 @@ use tauri::{Emitter, Manager, State};
 
 /// Everything the commands need, resolved once at startup.
 mod live;
+mod people;
 
 pub(crate) struct AppState {
     store: Arc<Store>,
@@ -876,6 +877,10 @@ pub fn run() {
             live::list_audio_devices,
             live::start_live_session,
             live::stop_live_session,
+            people::list_people,
+            people::get_person,
+            people::attribute_calls,
+            people::assign_call_person,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

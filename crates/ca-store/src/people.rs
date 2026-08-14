@@ -165,6 +165,36 @@ impl Store {
         Ok(())
     }
 
+    /// Change only who was on a call, leaving its time alone.
+    ///
+    /// Separate from [`Store::set_call_participants`] on purpose. A hand-made
+    /// reassignment knows the people but not the time, and routing it through
+    /// the other method would pass `None` and erase an `occurred_at` that had
+    /// been correctly derived from the filename.
+    pub fn assign_call_people(
+        &self,
+        call_id: &CallId,
+        agent: Option<&PersonId>,
+        contact: Option<&PersonId>,
+        source: AttributionSource,
+    ) -> Result<()> {
+        let conn = self.lock()?;
+        conn.execute(
+            "UPDATE calls
+                SET agent_id = ?2, contact_id = ?3, attribution = ?4, updated_at = ?5
+              WHERE id = ?1",
+            params![
+                call_id.as_str(),
+                agent.map(|p| p.as_str()),
+                contact.map(|p| p.as_str()),
+                source.as_str(),
+                Utc::now().to_rfc3339(),
+            ],
+        )
+        .map_err(|e| CaError::Storage(format!("assign people: {e}")))?;
+        Ok(())
+    }
+
     pub fn call_attribution(&self, call_id: &CallId) -> Result<AttributionSource> {
         let conn = self.lock()?;
         let s: Option<String> = conn
