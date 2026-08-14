@@ -20,6 +20,9 @@ import type {
   CallSummary,
   Finding,
   FindingCount,
+  MonthPoint,
+  PersonDetail,
+  PersonSummary,
   ProviderInfo,
   RunItem,
   RunSummary,
@@ -810,6 +813,141 @@ async function dispatch(cmd: string, args: Record<string, unknown>): Promise<unk
   // skipped over by an instant resolve.
   await new Promise((r) => setTimeout(r, 90))
 
+
+// ---------------------------------------------------------------- people
+//
+// Shaped after the real corpus: one very busy contact whose calls have never
+// been analysed, one agent with a full year of scores, and one contact with a
+// single call. The unanalysed one is the important fixture — it is the state
+// almost every person is in after a first ingest, and the screen has to read
+// correctly without inventing numbers to fill the columns.
+
+const PEOPLE: PersonSummary[] = [
+  {
+    id: 'person_busy',
+    kind: 'contact',
+    displayName: 'Ishita AI Cloud Koradia',
+    handle: 'ishita ai cloud koradia',
+    calls: 196,
+    firstCall: '2024-12-14T09:12:00Z',
+    lastCall: '2025-06-27T17:41:00Z',
+  },
+  {
+    id: 'person_agent',
+    kind: 'agent',
+    displayName: 'Priya Sharma',
+    handle: 'priya sharma',
+    calls: 48,
+    firstCall: '2025-01-08T09:00:00Z',
+    lastCall: '2025-11-28T16:20:00Z',
+  },
+  {
+    id: 'person_once',
+    kind: 'contact',
+    displayName: '+918485823280',
+    handle: '+918485823280',
+    calls: 1,
+    firstCall: '2025-11-12T14:23:26Z',
+    lastCall: '2025-11-12T14:23:26Z',
+  },
+]
+
+function monthlySeries(base: number, spread: number, months: number): MonthPoint[] {
+  const r = rng(9091)
+  return Array.from({ length: months }, (_, i) => ({
+    month: `2025-${String(i + 1).padStart(2, '0')}`,
+    value: base + (r() - 0.5) * spread,
+    calls: 2 + Math.floor(r() * 6),
+  }))
+}
+
+function personDetail(personId: string): PersonDetail {
+  const summary = PEOPLE.find((p) => p.id === personId) ?? PEOPLE[0]
+
+  // The busy contact has never been analysed: every measure absent, every call
+  // real. This is what most of a freshly ingested corpus looks like.
+  if (summary.id === 'person_busy') {
+    return {
+      summary,
+      facts: {
+        personId: summary.id,
+        calls: summary.calls,
+        meanQa: null,
+        meanSentiment: null,
+        compliancePassRate: null,
+        firstCall: summary.firstCall,
+        lastCall: summary.lastCall,
+      },
+      qaTrend: [],
+      sentimentTrend: [],
+      repeatContactRate: 0.87,
+      // Newest first, so the date and the sequence number move together —
+      // a fixture where they disagree makes the real ordering look broken.
+      calls: Array.from({ length: 12 }, (_, i) => ({
+        callId: `call_busy_${i}`,
+        occurredAt: `2025-${String(6 - Math.floor(i / 2)).padStart(2, '0')}-${String(27 - i).padStart(2, '0')}T11:00:00Z`,
+        qaOverall: null,
+        sentiment: null,
+        sequence: 196 - i,
+      })),
+    }
+  }
+
+  if (summary.id === 'person_once') {
+    return {
+      summary,
+      facts: {
+        personId: summary.id,
+        calls: 1,
+        meanQa: 74,
+        meanSentiment: 0.31,
+        compliancePassRate: 1,
+        firstCall: summary.firstCall,
+        lastCall: summary.lastCall,
+      },
+      // One month is not a trend, and the screen must say so rather than draw
+      // a single point as a line.
+      qaTrend: [{ month: '2025-11', value: 74, calls: 1 }],
+      sentimentTrend: [],
+      repeatContactRate: 0,
+      calls: [
+        {
+          callId: 'call_demo_1',
+          occurredAt: summary.lastCall,
+          qaOverall: 74,
+          sentiment: 0.31,
+          sequence: 1,
+        },
+      ],
+    }
+  }
+
+  return {
+    summary,
+    facts: {
+      personId: summary.id,
+      calls: summary.calls,
+      meanQa: 78.4,
+      meanSentiment: 0.12,
+      compliancePassRate: 0.83,
+      firstCall: summary.firstCall,
+      lastCall: summary.lastCall,
+    },
+    qaTrend: monthlySeries(78, 22, 11),
+    sentimentTrend: monthlySeries(0.1, 0.7, 11),
+    repeatContactRate: 0.24,
+    calls: Array.from({ length: 10 }, (_, i) => ({
+      callId: `call_agent_${i}`,
+      occurredAt: `2025-${String(11 - i).padStart(2, '0')}-14T10:30:00Z`,
+      qaOverall: i % 4 === 0 ? null : 64 + ((i * 7) % 30),
+      sentiment: i % 3 === 0 ? null : (i % 5) / 10 - 0.2,
+      sequence: 48 - i,
+    })),
+  }
+}
+
+
+
   switch (cmd) {
     case 'get_startup':
       return STARTUP
@@ -941,6 +1079,26 @@ async function dispatch(cmd: string, args: Record<string, unknown>): Promise<unk
     }
     case 'get_risk_register':
       return RISK_REGISTER
+
+    case 'list_people': {
+      const { kind, search } = args as { kind?: string | null; search?: string | null }
+      const needle = (search ?? '').toLowerCase()
+      return PEOPLE.filter(
+        (p) =>
+          (!kind || p.kind === kind) &&
+          (!needle ||
+            p.displayName.toLowerCase().includes(needle) ||
+            p.handle.includes(needle)),
+      )
+    }
+    case 'get_person': {
+      const { personId } = args as { personId: string }
+      return personDetail(personId)
+    }
+    case 'attribute_calls':
+      return { scanned: 1972, attributed: 1972, skippedManual: 0, unmatched: 0 }
+    case 'assign_call_person':
+      return null
 
     case 'list_audio_devices':
       return {

@@ -13,16 +13,19 @@ import { DashboardScreen } from './screens/DashboardScreen'
 import { IngestScreen } from './screens/IngestScreen'
 import { InsightsScreen } from './screens/InsightsScreen'
 import { LiveScreen } from './screens/LiveScreen'
+import { PeopleScreen } from './screens/PeopleScreen'
+import { PersonDetailScreen } from './screens/PersonDetailScreen'
 import { SettingsScreen } from './screens/SettingsScreen'
 import './App.css'
 
-type Tab = 'dashboard' | 'live' | 'ingest' | 'calls' | 'insights' | 'settings'
+type Tab = 'dashboard' | 'live' | 'ingest' | 'calls' | 'people' | 'insights' | 'settings'
 
 const TABS: { id: Tab; label: string; icon: string }[] = [
   { id: 'dashboard', label: 'Overview', icon: '◱' },
   { id: 'live', label: 'Live', icon: '◉' },
   { id: 'ingest', label: 'Ingest', icon: '↧' },
   { id: 'calls', label: 'Calls', icon: '☰' },
+  { id: 'people', label: 'People', icon: '◑' },
   { id: 'insights', label: 'Insights', icon: '◈' },
   { id: 'settings', label: 'Settings', icon: '⚙︎' },
 ]
@@ -32,6 +35,7 @@ type Theme = 'light' | 'dark'
 export default function App() {
   const [tab, setTab] = useState<Tab>('dashboard')
   const [selected, setSelected] = useState<string | null>(null)
+  const [person, setPerson] = useState<string | null>(null)
   const [theme, setTheme] = useState<Theme>(() =>
     window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light',
   )
@@ -42,6 +46,11 @@ export default function App() {
 
   const openCall = (callId: string) => {
     setSelected(callId)
+  }
+
+  const openPerson = (personId: string) => {
+    setPerson(personId)
+    setSelected(null)
   }
 
   return (
@@ -58,6 +67,7 @@ export default function App() {
             onClick={() => {
               setTab(t.id)
               setSelected(null)
+              setPerson(null)
             }}
           >
             <span className="app-rail-icon">{t.icon}</span>
@@ -80,12 +90,20 @@ export default function App() {
       <main className="app-main">
         {selected ? (
           <CallDetailScreen callId={selected} onBack={() => setSelected(null)} />
+        ) : person ? (
+          <PersonDetailScreen
+            personId={person}
+            onBack={() => setPerson(null)}
+            onOpenCall={openCall}
+          />
         ) : tab === 'dashboard' ? (
           <DashboardScreen onSelect={openCall} />
         ) : tab === 'live' ? (
           <LiveScreen onOpenCall={openCall} />
         ) : tab === 'ingest' ? (
           <IngestScreen />
+        ) : tab === 'people' ? (
+          <PeopleScreen onOpenPerson={openPerson} />
         ) : tab === 'insights' ? (
           <InsightsScreen />
         ) : tab === 'settings' ? (

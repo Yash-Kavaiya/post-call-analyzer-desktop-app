@@ -1,0 +1,44 @@
+.people-header { display: flex; align-items: center; gap: 14px; margin-bottom: 18px; flex-wrap: wrap; }
+.people-header h2 { margin: 0; font-size: 26px; font-weight: 500; }
+
+.people-filters { display: flex; gap: 6px; }
+.people-filter { padding: 6px 14px; border: 1px solid var(--outline); border-radius: 999px;
+  background: transparent; color: var(--on-surface-variant); font: inherit; font-size: 13px;
+  cursor: pointer; }
+.people-filter-on { background: var(--surface-container-high); color: var(--on-surface); }
+.people-filter:focus-visible { outline: 2px solid var(--md-sys-color-primary); outline-offset: 1px; }
+
+.people-search { flex: 1; min-width: 180px; max-width: 320px; padding: 9px 14px;
+  border: 1px solid var(--outline); border-radius: 999px;
+  background: var(--surface-container-low); color: var(--on-surface); font: inherit; }
+.people-search:focus-visible { outline: 2px solid var(--md-sys-color-primary); outline-offset: 1px; }
+
+.people-action { padding: 8px 15px; border: 1px solid var(--outline); border-radius: 999px;
+  background: transparent; color: inherit; font: inherit; font-size: 13px; cursor: pointer; }
+.people-action:disabled { opacity: .5; cursor: default; }
+
+.people-table { width: 100%; border-collapse: collapse;
+  background: var(--surface-container-low); border: 1px solid var(--outline);
+  border-radius: var(--md-sys-shape-corner-medium, 12px); overflow: hidden; }
+.people-table th { text-align: left; padding: 11px 14px; font-size: 12px; font-weight: 500;
+  text-transform: uppercase; letter-spacing: .04em; color: var(--on-surface-variant);
+  border-bottom: 1px solid var(--outline); }
+.people-table td { padding: 11px 14px; border-bottom: 1px solid var(--outline); font-size: 14px; }
+.people-table tbody tr { cursor: pointer; }
+.people-table tbody tr:hover { background: var(--surface-container-high); }
+.people-table tbody tr:focus-visible { outline: 2px solid var(--md-sys-color-primary); outline-offset: -2px; }
+.people-name { max-width: 360px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.people-num { font-variant-numeric: tabular-nums; }
+
+.people-kind { padding: 3px 9px; border-radius: 999px; font-size: 12px;
+  background: var(--surface-container-high); color: var(--on-surface-variant); }
+.people-kind-agent { background: rgba(26,115,232,.16); color: var(--md-sys-color-primary); }
+
+/* A dash is deliberately dimmer than a value. Scanning for what has *not* been
+   measured matters as much as scanning for what has, and an unscored person
+   must never be mistakable for a badly scored one. */
+.people-none { color: var(--on-surface-variant); opacity: .55; }
+
+.people-state, .people-count { color: var(--on-surface-variant); padding: 14px 0; font-size: 13px; }
+.people-note { color: var(--on-surface-variant); font-size: 13px; margin: 0 0 12px; }
+.people-error { color: var(--error, #B3261E); }

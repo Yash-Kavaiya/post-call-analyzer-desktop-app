@@ -600,6 +600,16 @@ export function formatDuration(secs: number | null | undefined): string {
   return `${m}:${String(s).padStart(2, '0')}`
 }
 
+/**
+ * The date part of a timestamp, or a dash.
+ *
+ * A call with no `occurredAt` has never been attributed a time; showing it as
+ * an epoch date or as blank would both be worse than saying so.
+ */
+export function day(iso: string | null | undefined): string {
+  return iso ? iso.slice(0, 10) : '—'
+}
+
 export function formatHours(secs: number): string {
   if (secs < 3600) return `${Math.round(secs / 60)} min`
   return `${(secs / 3600).toFixed(1)} h`
@@ -718,3 +728,78 @@ export function onLiveEvent(cb: (e: LiveEvent) => void): () => void {
     stop?.()
   }
 }
+
+// ------------------------------------------------------------- participants
+
+export interface PersonSummary {
+  id: string
+  kind: 'agent' | 'contact'
+  displayName: string
+  handle: string
+  calls: number
+  /** Null when no call of theirs carries a time — not the same as no calls. */
+  firstCall: string | null
+  lastCall: string | null
+}
+
+export interface MonthPoint {
+  month: string
+  value: number
+  calls: number
+}
+
+export interface PersonFacts {
+  personId: string
+  calls: number
+  /**
+   * Null means no analysed call, which is not the same as a score of zero.
+   * Rendering null as 0 would make a person nobody has scored look identical
+   * to the worst agent on the floor.
+   */
+  meanQa: number | null
+  meanSentiment: number | null
+  compliancePassRate: number | null
+  firstCall: string | null
+  lastCall: string | null
+}
+
+export interface PersonCall {
+  callId: string
+  occurredAt: string | null
+  qaOverall: number | null
+  sentiment: number | null
+  /** Position in this contact's run of calls, oldest first. 1 is a first contact. */
+  sequence: number
+}
+
+export interface PersonDetail {
+  summary: PersonSummary
+  facts: PersonFacts
+  qaTrend: MonthPoint[]
+  sentimentTrend: MonthPoint[]
+  /** Null when no call carries a time: unanswerable rather than zero. */
+  repeatContactRate: number | null
+  calls: PersonCall[]
+}
+
+export interface AttributeReport {
+  scanned: number
+  attributed: number
+  skippedManual: number
+  unmatched: number
+}
+
+export const listPeople = (kind?: string, search?: string): Promise<PersonSummary[]> =>
+  invoke('list_people', { kind: kind ?? null, search: search ?? null })
+
+export const getPerson = (personId: string): Promise<PersonDetail> =>
+  invoke('get_person', { personId })
+
+export const attributeCalls = (dryRun: boolean, force: boolean): Promise<AttributeReport> =>
+  invoke('attribute_calls', { dryRun, force })
+
+export const assignCallPerson = (
+  callId: string,
+  agentName: string | null,
+  contactName: string | null,
+): Promise<void> => invoke('assign_call_person', { callId, agentName, contactName })

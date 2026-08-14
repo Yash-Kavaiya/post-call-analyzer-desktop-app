@@ -1,0 +1,62 @@
+.pd-back { background: none; border: none; color: var(--md-sys-color-primary);
+  font: inherit; font-size: 13px; cursor: pointer; padding: 0 0 12px; }
+
+.pd-header { display: flex; align-items: center; gap: 12px; margin-bottom: 20px; flex-wrap: wrap; }
+.pd-header h2 { margin: 0; font-size: 26px; font-weight: 500; }
+.pd-handle { font-size: 12px; color: var(--on-surface-variant);
+  background: var(--surface-container-high); padding: 3px 8px; border-radius: 6px; }
+.pd-kind { padding: 3px 9px; border-radius: 999px; font-size: 12px;
+  background: var(--surface-container-high); color: var(--on-surface-variant); }
+.pd-kind-agent { background: rgba(26,115,232,.16); color: var(--md-sys-color-primary); }
+
+.pd-stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 12px; margin-bottom: 22px; }
+.pd-stat { background: var(--surface-container-low); border: 1px solid var(--outline);
+  border-radius: var(--md-sys-shape-corner-medium, 12px); padding: 14px 16px;
+  display: flex; flex-direction: column; gap: 4px; }
+.pd-stat-value { font-size: 24px; font-variant-numeric: tabular-nums; }
+/* One card holds a range; letting it wrap splits a date across lines. */
+.pd-stat-dates { font-size: 14px; white-space: nowrap; }
+.pd-stat-label { font-size: 12px; color: var(--on-surface-variant);
+  text-transform: uppercase; letter-spacing: .04em; }
+
+.pd-trends { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 12px; margin-bottom: 24px; }
+.pd-trend { background: var(--surface-container-low); border: 1px solid var(--outline);
+  border-radius: var(--md-sys-shape-corner-medium, 12px); padding: 14px 16px; }
+.pd-trend-head { display: flex; justify-content: space-between; align-items: baseline;
+  margin-bottom: 8px; }
+.pd-trend-label { font-size: 12px; color: var(--on-surface-variant);
+  text-transform: uppercase; letter-spacing: .04em; }
+.pd-trend-range { font-size: 12px; color: var(--on-surface-variant);
+  font-variant-numeric: tabular-nums; }
+.pd-trend-empty { display: flex; justify-content: space-between; align-items: baseline; }
+
+/* Bounded height: an unbounded viewBox stretched to the container turns a flat
+   series into a full-width horizontal rule that reads as a divider. */
+.pd-spark { display: block; width: 100%; height: 48px; }
+.pd-spark-line { fill: none; stroke: var(--md-sys-color-primary); stroke-width: 1.5;
+  vector-effect: non-scaling-stroke; stroke-linejoin: round; }
+
+.pd-section { font-size: 13px; text-transform: uppercase; letter-spacing: .04em;
+  color: var(--on-surface-variant); font-weight: 500; margin: 0 0 10px; }
+
+.pd-table { width: 100%; border-collapse: collapse;
+  background: var(--surface-container-low); border: 1px solid var(--outline);
+  border-radius: var(--md-sys-shape-corner-medium, 12px); overflow: hidden; }
+.pd-table th { text-align: left; padding: 10px 14px; font-size: 12px; font-weight: 500;
+  text-transform: uppercase; letter-spacing: .04em; color: var(--on-surface-variant);
+  border-bottom: 1px solid var(--outline); }
+.pd-table td { padding: 10px 14px; border-bottom: 1px solid var(--outline); font-size: 14px; }
+.pd-table tbody tr { cursor: pointer; }
+.pd-table tbody tr:hover { background: var(--surface-container-high); }
+.pd-table tbody tr:focus-visible { outline: 2px solid var(--md-sys-color-primary); outline-offset: -2px; }
+.pd-num { font-variant-numeric: tabular-nums; }
+
+.pd-first { font-size: 12px; color: var(--on-surface-variant); }
+.pd-repeat { font-size: 12px; padding: 2px 8px; border-radius: 999px;
+  background: rgba(26,115,232,.16); color: var(--md-sys-color-primary); }
+
+.pd-none { color: var(--on-surface-variant); opacity: .55; font-size: 13px; }
+.pd-state { color: var(--on-surface-variant); padding: 20px 0; }
+.pd-error { color: var(--error, #B3261E); }
