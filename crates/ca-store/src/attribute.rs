@@ -3,7 +3,7 @@
 use ca_core::error::{CaError, Result};
 use ca_core::identity::AttributionSource;
 use ca_core::ids::CallId;
-use ca_identity::{attribute, Pattern};
+use ca_identity::{attribute, Attribution, Pattern};
 
 use crate::Store;
 
@@ -76,24 +76,46 @@ impl Store {
             if opts.dry_run {
                 continue;
             }
-
-            let agent = found
-                .agent
-                .map(|h| self.upsert_person(h.kind, &h.display_name, &h.handle))
-                .transpose()?;
-            let contact = found
-                .contact
-                .map(|h| self.upsert_person(h.kind, &h.display_name, &h.handle))
-                .transpose()?;
-
-            self.set_call_participants(
-                &CallId::from(id),
-                agent.as_ref(),
-                contact.as_ref(),
-                found.occurred_at,
-                AttributionSource::Rule,
-            )?;
+            self.write_attribution(&CallId::from(id), found)?;
         }
         Ok(report)
+    }
+
+    /// Attribute one call, as it is registered.
+    ///
+    /// Ingest calls this so a freshly scanned folder never needs a separate
+    /// backfill pass. Returns whether anything was learned.
+    pub fn attribute_call(
+        &self,
+        call_id: &CallId,
+        display_name: &str,
+        source_key: &str,
+        patterns: &[Pattern],
+    ) -> Result<bool> {
+        let found = attribute(display_name, source_key, patterns);
+        if found.is_empty() {
+            return Ok(false);
+        }
+        self.write_attribution(call_id, found)?;
+        Ok(true)
+    }
+
+    fn write_attribution(&self, call_id: &CallId, found: Attribution) -> Result<()> {
+        let agent = found
+            .agent
+            .map(|h| self.upsert_person(h.kind, &h.display_name, &h.handle))
+            .transpose()?;
+        let contact = found
+            .contact
+            .map(|h| self.upsert_person(h.kind, &h.display_name, &h.handle))
+            .transpose()?;
+
+        self.set_call_participants(
+            call_id,
+            agent.as_ref(),
+            contact.as_ref(),
+            found.occurred_at,
+            AttributionSource::Rule,
+        )
     }
 }

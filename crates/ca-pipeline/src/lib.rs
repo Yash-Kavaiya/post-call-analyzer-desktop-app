@@ -151,10 +151,16 @@ impl Pipeline {
         let total = items.len();
         let before = self.store.count_calls()?;
 
+        // Attribute as each call is registered, so a freshly scanned folder
+        // shows who was on every call without the user having to run a
+        // separate backfill first.
+        let patterns = ca_identity::builtin_patterns();
         for item in items {
             let mut call = Call::new(&item.key, source.name(), &item.display_name);
             call.media_path = Some(item.key.clone());
-            self.store.upsert_call(&call)?;
+            let id = self.store.upsert_call(&call)?;
+            self.store
+                .attribute_call(&id, &item.display_name, &item.key, &patterns)?;
         }
 
         let after = self.store.count_calls()?;

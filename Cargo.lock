@@ -395,6 +395,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "ca-identity"
+version = "0.1.0"
+dependencies = [
+ "ca-core",
+ "chrono",
+ "regex",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
 name = "ca-ingest"
 version = "0.1.0"
 dependencies = [
@@ -412,6 +423,7 @@ dependencies = [
 name = "ca-insights"
 version = "0.1.0"
 dependencies = [
+ "chrono",
  "serde",
  "serde_json",
 ]
@@ -469,6 +481,7 @@ dependencies = [
  "ca-audio",
  "ca-core",
  "ca-diarize",
+ "ca-identity",
  "ca-ingest",
  "ca-llm",
  "ca-privacy",
@@ -508,6 +521,7 @@ name = "ca-store"
 version = "0.1.0"
 dependencies = [
  "ca-core",
+ "ca-identity",
  "ca-insights",
  "ca-metrics",
  "ca-privacy",
@@ -552,6 +566,7 @@ dependencies = [
  "ca-asr",
  "ca-config",
  "ca-core",
+ "ca-identity",
  "ca-ingest",
  "ca-insights",
  "ca-live",

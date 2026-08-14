@@ -151,6 +151,12 @@ pub async fn start_live_session(
     let call_id = store
         .upsert_call(&Call::new(format!("live-{started}"), "live", &display))
         .map_err(|e| e.to_string())?;
+
+    // A live call knows its agent for free: whoever is at this machine. The
+    // filename patterns can never learn that, so it is recorded here with its
+    // own provenance rather than being left for the backfill to guess at.
+    attribute_to_local_agent(&store, &call_id);
+
     let media_path = recordings.join(format!("{}.wav", call_id.as_str()));
 
     let source: Box<dyn AudioSource> = match &replay_path {
@@ -319,4 +325,47 @@ async fn analyse_finished_call(
     }
     let _ = store.finish_run(&run_id, processed, failed);
     let _ = app.emit("pipeline:runFinished", run_id.as_str().to_string());
+}
+
+/// Record who was at the machine for a live call.
+///
+/// Reads the `local_agent_handle` setting. When it is unset the call still
+/// records and still analyses — an unattributed live call is a normal call, and
+/// refusing to start one because nobody had filled in a name would be a far
+/// worse failure than a missing rollup.
+///
+/// Deliberately best-effort: an identity write must never be the reason a call
+/// fails to begin.
+fn attribute_to_local_agent(store: &std::sync::Arc<ca_store::Store>, call_id: &ca_core::CallId) {
+    let handle: Option<String> = store
+        .get_setting("local_agent_handle")
+        .ok()
+        .flatten()
+        .filter(|s: &String| !s.trim().is_empty());
+    let Some(name) = handle else {
+        return;
+    };
+
+    let normalised = ca_identity::normalise_handle(&name);
+    let person = match store.upsert_person(
+        ca_core::identity::PersonKind::Agent,
+        name.trim(),
+        &normalised,
+    ) {
+        Ok(p) => p,
+        Err(e) => {
+            tracing::warn!(error = %e, "could not record the local agent");
+            return;
+        }
+    };
+
+    if let Err(e) = store.set_call_participants(
+        call_id,
+        Some(&person),
+        None,
+        Some(chrono::Utc::now()),
+        ca_core::identity::AttributionSource::Live,
+    ) {
+        tracing::warn!(error = %e, "could not attribute the live call");
+    }
 }
