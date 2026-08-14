@@ -17,6 +17,7 @@ pub mod runs;
 pub mod schema;
 pub mod scope;
 pub mod settings;
+pub mod tenant;
 pub mod timeline;
 
 pub use attribute::{AttributeOptions, AttributeReport};
@@ -27,6 +28,7 @@ pub use people::{CallPeople, PersonCall, PersonDetail, PersonSummary};
 pub use reset::{backup_db, ResetReport, ResetScope};
 pub use runs::{RunItem, RunSummary};
 pub use scope::{TeamSummary, OPERATOR_HANDLE_KEY};
+pub use tenant::{tenant_db_path, validate_slug, TenantInfo, TenantStores, DEFAULT_TENANT};
 
 use ca_core::analysis::{Analysis, Finding};
 use ca_core::audio::{AcousticFeatures, AudioMeta, WaveformPeaks};

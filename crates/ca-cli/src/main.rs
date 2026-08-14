@@ -30,6 +30,12 @@ struct Cli {
     #[arg(long, global = true)]
     r#as: Option<String>,
 
+    /// Which tenant's corpus to work on. Each tenant is a separate database
+    /// file, so this is not a filter that could be forgotten — it selects
+    /// which corpus exists at all.
+    #[arg(long, global = true, default_value = ca_store::DEFAULT_TENANT)]
+    tenant: String,
+
     #[command(subcommand)]
     command: Command,
 }
@@ -143,6 +149,10 @@ enum Command {
         #[arg(long, default_value_t = 8479)]
         port: u16,
     },
+    /// List every tenant that has a corpus on this machine.
+    Tenants,
+    /// Create a tenant's corpus now rather than on first use.
+    NewTenant { name: String },
     /// Show who this machine is signed in as, and what that lets them see.
     Whoami,
     /// Set who is using this machine. Omit the handle to clear it.
@@ -194,7 +204,16 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .init();
 
     let cli = Cli::parse();
-    let db_path = cli.db.unwrap_or_else(ca_store::default_db_path);
+    // An explicit --db wins: it names one file outright, and silently
+    // redirecting it under a tenant directory would be a surprise.
+    let db_path = match cli.db {
+        Some(path) => path,
+        None => {
+            let base = ca_store::default_db_path();
+            let base = base.parent().map(|p| p.to_path_buf()).unwrap_or_default();
+            ca_store::tenant_db_path(&base, &cli.tenant)?
+        }
+    };
     if let Some(parent) = db_path.parent() {
         std::fs::create_dir_all(parent).ok();
     }
@@ -620,6 +639,29 @@ Nothing was deleted. Re-run with --yes to go ahead."
                 report.calls, report.transcripts, report.analyses, report.findings, report.people,
             );
         }
+        Command::Tenants => {
+            let base = ca_store::default_db_path();
+            let base = base.parent().map(|p| p.to_path_buf()).unwrap_or_default();
+            let tenants = ca_store::TenantStores::new(&base).list()?;
+            if tenants.is_empty() {
+                println!("no corpora yet");
+            }
+            println!("{:<20} {:>10}  PATH", "TENANT", "SIZE");
+            for t in &tenants {
+                println!(
+                    "{:<20} {:>10}  {}",
+                    clip(&t.slug, 20),
+                    t.bytes.map(human_bytes).unwrap_or_else(|| "-".into()),
+                    t.path,
+                );
+            }
+        }
+        Command::NewTenant { name } => {
+            let base = ca_store::default_db_path();
+            let base = base.parent().map(|p| p.to_path_buf()).unwrap_or_default();
+            let info = ca_store::TenantStores::new(&base).create(&name)?;
+            println!("created tenant `{}` at {}", info.slug, info.path);
+        }
         Command::Whoami => {
             let scope = store.current_scope()?;
             let handle = store.operator_handle()?;
@@ -720,6 +762,16 @@ Nothing was deleted. Re-run with --yes to go ahead."
     }
 
     Ok(())
+}
+
+/// Bytes as something a person can read at a glance.
+fn human_bytes(n: u64) -> String {
+    const MB: f64 = 1024.0 * 1024.0;
+    if n as f64 >= MB {
+        format!("{:.1} MB", n as f64 / MB)
+    } else {
+        format!("{:.0} KB", (n as f64 / 1024.0).max(1.0))
+    }
 }
 
 /// Trim to a column width without splitting a multi-byte character.
