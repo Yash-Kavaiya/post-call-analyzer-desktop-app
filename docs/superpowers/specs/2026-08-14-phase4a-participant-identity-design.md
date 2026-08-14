@@ -95,7 +95,7 @@ CREATE TABLE people (
     -- agent | contact
     kind         TEXT NOT NULL,
     display_name TEXT NOT NULL,
-    -- Normalised identity key: E.164 for numbers, folded text for names.
+    -- Normalised identity key: digits for numbers, folded text for names.
     handle       TEXT NOT NULL,
     team_id      TEXT REFERENCES teams(id) ON DELETE SET NULL,
     created_at   TEXT NOT NULL,
@@ -175,9 +175,13 @@ agent" layout is expressible as configuration with no special case in code.
 
 ### Handle normalisation
 
-Phone numbers normalise to E.164; names fold to lowercase with collapsed
-whitespace. Uniqueness is `(kind, handle)`, so the same number may exist once as
-an agent and once as a contact without colliding.
+Phone numbers reduce to their digits, preserving a leading `+`; names fold to
+lowercase with collapsed whitespace. Uniqueness is `(kind, handle)`, so the same
+number may exist once as an agent and once as a contact without colliding.
+
+Deliberately **not** E.164. Converting `08618075571` to E.164 requires guessing
+a country code, and a wrong guess merges two unrelated people under one
+identity — a worse failure than leaving the number in the form it arrived in.
 
 **Known limitation, accepted for 4a:** a contact saved under a name in one call
 and appearing as a bare number in another becomes two people. Merging is real
