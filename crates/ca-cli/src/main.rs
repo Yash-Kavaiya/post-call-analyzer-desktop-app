@@ -187,6 +187,21 @@ enum Command {
         #[arg(long, default_value_t = false)]
         allow_public: bool,
     },
+    /// List custom agents and say whether each one loads.
+    ///
+    /// A plugin is a TOML file declaring a question, the fields it wants back,
+    /// and whether it may file findings. It is data, never code — nothing in a
+    /// plugin executes on this machine.
+    Plugins {
+        /// Directory to read. Defaults to `plugins/` beside the database.
+        #[arg(long)]
+        dir: Option<PathBuf>,
+    },
+    /// Check one plugin file and print the prompt it would send.
+    ///
+    /// Prints the shape asked of the model, so a plugin can be reviewed before
+    /// it is ever pointed at a corpus or a metered provider.
+    PluginCheck { file: PathBuf },
     /// Ask whether a sync server is alive. Used by the container healthcheck.
     SyncHealth {
         #[arg(long, default_value = "http://127.0.0.1:8480")]
@@ -766,6 +781,63 @@ Nothing was deleted. Re-run with --yes to go ahead."
                 },
                 tenants,
             )?;
+        }
+
+        Command::Plugins { dir } => {
+            let dir = dir.unwrap_or_else(|| {
+                let base = ca_store::default_db_path();
+                let base = base.parent().map(|p| p.to_path_buf()).unwrap_or_default();
+                ca_plugins::default_plugin_dir(&base)
+            });
+            let loaded = ca_plugins::load_dir(&dir)?;
+            if loaded.is_empty() {
+                println!("no plugins in {}", dir.display());
+                println!("drop a .toml file there — see docs/PHASE5_PLUGINS.md");
+            }
+            for p in &loaded {
+                match (&p.spec, &p.error) {
+                    (Some(spec), _) => println!(
+                        "{:<20} {:<32} {}",
+                        clip(&spec.name, 20),
+                        clip(&spec.title, 32),
+                        if spec.findings { "files findings" } else { "" }
+                    ),
+                    // The file name, not the path: a path truncated to a
+                    // column width tells you nothing about which file broke.
+                    (None, Some(e)) => println!(
+                        "{:<20} FAILED: {e}",
+                        clip(
+                            std::path::Path::new(&p.path)
+                                .file_name()
+                                .map(|n| n.to_string_lossy().to_string())
+                                .unwrap_or_else(|| p.path.clone())
+                                .as_str(),
+                            20
+                        )
+                    ),
+                    (None, None) => {}
+                }
+            }
+        }
+
+        Command::PluginCheck { file } => {
+            let text = std::fs::read_to_string(&file)
+                .map_err(|e| format!("cannot read {}: {e}", file.display()))?;
+            match ca_plugins::AgentSpec::parse(&text) {
+                Ok(spec) => {
+                    println!("ok: {} ({})", spec.name, spec.title);
+                    println!("files findings   : {}", spec.findings);
+                    println!("needs citations  : {}", spec.require_citations);
+                    println!("fields           : {}", spec.fields.len());
+                    println!();
+                    println!("the model is asked to return:");
+                    println!("{}", spec.response_shape());
+                }
+                Err(e) => {
+                    eprintln!("{}: {e}", file.display());
+                    std::process::exit(1);
+                }
+            }
         }
 
         Command::SyncHealth { url } => {

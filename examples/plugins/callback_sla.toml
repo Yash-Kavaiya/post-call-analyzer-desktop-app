@@ -1,0 +1,42 @@
+# Did the agent promise a callback, and was the promise inside SLA?
+#
+# A plugin is data. There is no script here and nothing in this file executes
+# on your machine — it declares a question and the shape of the answer.
+
+name = "callback_sla"
+title = "Callback within SLA"
+description = "Flags promised callbacks with no time, or a time beyond two working days."
+
+instructions = """
+Decide whether the AGENT promised to call the customer back.
+
+If they did, decide whether the promise named a specific time, and whether that
+time falls within two working days of the call. A promise with no time at all
+counts as outside SLA: "I'll get back to you" is not a commitment anyone can
+hold the agent to.
+"""
+
+# This plugin files findings, so its hits reach the risk register alongside the
+# built-in compliance agent's.
+findings = true
+
+[[fields]]
+name = "promised"
+type = "boolean"
+description = "true if a callback was promised at all"
+required = true
+
+[[fields]]
+name = "named_a_time"
+type = "boolean"
+description = "true if the promise included a specific time or day"
+
+[[fields]]
+name = "within_sla"
+type = "boolean"
+description = "true if the promised time is within two working days"
+
+[[fields]]
+name = "summary"
+type = "text"
+description = "one sentence, no more"

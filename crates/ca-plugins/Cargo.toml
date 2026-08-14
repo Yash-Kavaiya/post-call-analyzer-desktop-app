@@ -1,0 +1,21 @@
+[package]
+name = "ca-plugins"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+
+[dependencies]
+ca-core.workspace = true
+# Citation validation is the built-in one on purpose: a plugin's findings
+# reach the same register, so they face the same evidence rule.
+ca-agents.workspace = true
+ca-llm.workspace = true
+chrono.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+toml = "0.8"
+tracing.workspace = true
+
+[dev-dependencies]
+tokio = { workspace = true }

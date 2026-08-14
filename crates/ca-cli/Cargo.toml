@@ -15,6 +15,7 @@ chrono.workspace = true
 ca-identity.workspace = true
 ca-insights.workspace = true
 ca-sync.workspace = true
+ca-plugins.workspace = true
 ca-store.workspace = true
 ca-ingest.workspace = true
 ca-pipeline.workspace = true

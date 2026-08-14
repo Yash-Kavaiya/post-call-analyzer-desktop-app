@@ -42,6 +42,30 @@
 - 🖥️ **Windows Desktop App** — Tauri 2 + React, native feel
 - 🔐 **Credential Manager** — API keys stored securely, never exposed to the UI
 
+### Phase 5 — Plugin Agents ✅
+
+Custom agents as TOML files. See [docs/PHASE5_PLUGINS.md](docs/PHASE5_PLUGINS.md).
+
+- 🧩 **Declared, not coded** — a plugin is data; nothing in one executes on
+  your machine, so a downloaded file cannot reach the corpus or the keystore
+- 🔒 **Same guards as a built-in** — the redacted transcript, real-segment
+  citations, and findings dropped when the evidence does not check out
+- 🚦 **One broken plugin never disables the others** — it is reported by name
+
+### Phase 4b–4e — Teams, Sync and Deployment ✅
+
+See [docs/PHASE4_SERVER.md](docs/PHASE4_SERVER.md) and
+[docs/PHASE4_DEPLOY.md](docs/PHASE4_DEPLOY.md).
+
+- 👥 **Roles and teams** — an agent sees their own calls, a supervisor their
+  team's, an admin everything; counts scoped as well as content
+- 📡 **Sync server** — scores, finding codes and opaque ids travel; transcripts,
+  names and numbers never do, enforced at both ends
+- 🏢 **Tenant isolation** — one database per tenant, so a cross-tenant leak is
+  unrepresentable rather than dependent on a `WHERE` clause
+- 🐳 **Deployable** — container, TLS-terminating proxy, unauthenticated health
+  probe, `backup-all`
+
 ### Phase 4a — Participant Identity ✅
 
 Who was on the call, on both sides — the column every per-agent rollup and
@@ -279,17 +303,20 @@ Launch the Tauri desktop app to:
 - [x] Phase 1: Foundations (transcription, diarization, PII, LLM scoring, dashboard)
 - [x] Phase 2: Multi-agent battery (QA, sentiment, compliance, root cause, action items, coaching, CX, exec summary)
 - [x] Phase 3: Live call assist (two-stream capture, live transcript, deterministic alerts, live monitor)
-- [ ] Phase 4: Multi-tenant & cloud deployment
+- [x] Phase 4: Multi-tenant & cloud deployment
   - [x] 4a: Participant identity (agents, contacts, real call time, repeat-contact rate)
-  - [ ] 4b: Roles and scoped views
-  - [ ] 4c: Sync server
-  - [ ] 4d: Tenant isolation
-  - [ ] 4e: Deployment
-- [ ] Phase 5: Plugin system for custom agents
+  - [x] 4b: Roles and scoped views
+  - [x] 4c: Sync server (metrics only — never transcripts, names or numbers)
+  - [x] 4d: Tenant isolation (one database per tenant)
+  - [x] 4e: Deployment (container, TLS proxy, health, backups)
+- [x] Phase 5: Plugin system for custom agents
 
 See [docs/PHASE2_AGENTS.md](docs/PHASE2_AGENTS.md),
 [docs/PHASE3_LIVE.md](docs/PHASE3_LIVE.md) and
-[docs/PHASE4A_IDENTITY.md](docs/PHASE4A_IDENTITY.md) for details.
+[docs/PHASE4A_IDENTITY.md](docs/PHASE4A_IDENTITY.md),
+[docs/PHASE4_SERVER.md](docs/PHASE4_SERVER.md),
+[docs/PHASE4_DEPLOY.md](docs/PHASE4_DEPLOY.md) and
+[docs/PHASE5_PLUGINS.md](docs/PHASE5_PLUGINS.md) for details.
 
 ---
 

@@ -353,6 +353,7 @@ dependencies = [
  "ca-insights",
  "ca-llm",
  "ca-pipeline",
+ "ca-plugins",
  "ca-store",
  "ca-sync",
  "chrono",
@@ -495,6 +496,21 @@ dependencies = [
  "serde",
  "serde_json",
  "tokio",
+ "tracing",
+]
+
+[[package]]
+name = "ca-plugins"
+version = "0.1.0"
+dependencies = [
+ "ca-agents",
+ "ca-core",
+ "ca-llm",
+ "chrono",
+ "serde",
+ "serde_json",
+ "tokio",
+ "toml 0.8.2",
  "tracing",
 ]
 

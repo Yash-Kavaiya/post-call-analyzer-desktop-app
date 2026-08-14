@@ -1,0 +1,28 @@
+# Did anyone mention the loyalty scheme?
+#
+# The simplest useful plugin: one question, three fields, no findings. Every
+# team has a handful of these and none of them justify a code change.
+
+name = "loyalty_mention"
+title = "Loyalty scheme mentioned"
+
+instructions = """
+Decide whether the AGENT mentioned the loyalty or rewards scheme at any point,
+and whether the customer showed interest. Judge only what is said in the
+transcript; do not infer interest from tone.
+"""
+
+[[fields]]
+name = "mentioned"
+type = "boolean"
+required = true
+
+[[fields]]
+name = "customer_interested"
+type = "boolean"
+description = "null if it was never mentioned"
+
+[[fields]]
+name = "phrases"
+type = "list"
+description = "the words the agent actually used"
