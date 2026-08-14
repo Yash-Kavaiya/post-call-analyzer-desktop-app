@@ -92,6 +92,29 @@ enum Command {
     },
     /// Corpus and spend summary.
     Stats,
+    /// Derive who was on each call from its filename.
+    ///
+    /// Explicit rather than automatic: this rewrites every row in the corpus,
+    /// which is not something to do behind the user's back at startup.
+    Attribute {
+        /// Report what would change and write nothing.
+        #[arg(long, default_value_t = false)]
+        dry_run: bool,
+        /// Also overwrite assignments made by hand. Off by default, because a
+        /// backfill that discards corrections is worse than one that skips.
+        #[arg(long, default_value_t = false)]
+        force: bool,
+    },
+    /// List the people on calls.
+    People {
+        /// `agent` or `contact`. Both if omitted.
+        #[arg(long)]
+        kind: Option<String>,
+        #[arg(long)]
+        search: Option<String>,
+        #[arg(long, default_value_t = 25)]
+        limit: usize,
+    },
 }
 
 fn default_paths() -> (PathBuf, PathBuf) {
@@ -464,9 +487,66 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             println!("tokens           : {input} in / {output} out");
             println!("spend            : ${cost:.4}");
         }
+        Command::Attribute { dry_run, force } => {
+            let report = store.attribute_calls(
+                &ca_identity::builtin_patterns(),
+                ca_store::AttributeOptions { dry_run, force },
+            )?;
+            println!(
+                "{} scanned, {} attributed, {} skipped (manual), {} unmatched{}",
+                report.scanned,
+                report.attributed,
+                report.skipped_manual,
+                report.unmatched,
+                if dry_run {
+                    "  [dry run, nothing written]"
+                } else {
+                    ""
+                },
+            );
+        }
+        Command::People {
+            kind,
+            search,
+            limit,
+        } => {
+            let kind = kind
+                .as_deref()
+                .and_then(ca_core::identity::PersonKind::parse);
+            let people = store.list_people(kind, search.as_deref())?;
+            println!("{:<32} {:<8} {:>6}  LAST CALL", "NAME", "KIND", "CALLS");
+            for p in people.iter().take(limit) {
+                println!(
+                    "{:<32} {:<8} {:>6}  {}",
+                    clip(&p.display_name, 32),
+                    p.kind,
+                    p.calls,
+                    // An unattributed time shows as absent rather than as a
+                    // date nobody ever observed.
+                    p.last_call
+                        .as_deref()
+                        .map(|s| &s[..10.min(s.len())])
+                        .unwrap_or("-"),
+                );
+            }
+            println!();
+            println!("{} people", people.len());
+        }
     }
 
     Ok(())
+}
+
+/// Trim to a column width without splitting a multi-byte character.
+///
+/// Contact names in a real corpus contain emoji, so slicing by byte would
+/// panic on the first one.
+fn clip(s: &str, n: usize) -> String {
+    if s.chars().count() <= n {
+        s.to_string()
+    } else {
+        s.chars().take(n.saturating_sub(1)).collect::<String>() + "\u{2026}"
+    }
 }
 
 fn short(s: &str) -> String {

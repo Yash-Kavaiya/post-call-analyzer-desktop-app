@@ -348,6 +348,7 @@ dependencies = [
  "ca-agents",
  "ca-asr",
  "ca-core",
+ "ca-identity",
  "ca-ingest",
  "ca-llm",
  "ca-pipeline",
