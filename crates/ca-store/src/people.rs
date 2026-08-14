@@ -267,3 +267,91 @@ fn parse_time(s: &str) -> DateTime<Utc> {
         .map(|t| t.with_timezone(&Utc))
         .unwrap_or_else(|_| Utc::now())
 }
+
+/// Who was on one call, and where that call sits in the contact's history.
+#[derive(Debug, Clone, Default, serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CallPeople {
+    pub agent_id: Option<String>,
+    pub agent_name: Option<String>,
+    pub contact_id: Option<String>,
+    pub contact_name: Option<String>,
+    /// none | rule | manual | live.
+    pub attribution: String,
+    /// Position in this contact's run of calls, oldest first. `1` is a first
+    /// contact; anything higher is a repeat. `None` when there is no contact
+    /// or no call time to order by.
+    pub sequence: Option<usize>,
+    /// How many calls this contact has in total.
+    pub contact_calls: Option<usize>,
+}
+
+impl Store {
+    /// The participants on a call, for the detail screen.
+    pub fn call_people(&self, call_id: &CallId) -> Result<CallPeople> {
+        let conn = self.lock()?;
+        let row: Option<(Option<String>, Option<String>, String, Option<String>)> = conn
+            .query_row(
+                "SELECT c.agent_id, c.contact_id, c.attribution, c.occurred_at
+                   FROM calls c WHERE c.id = ?1",
+                [call_id.as_str()],
+                |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?)),
+            )
+            .optional()
+            .map_err(|e| CaError::Storage(format!("call people: {e}")))?;
+
+        let Some((agent_id, contact_id, attribution, occurred_at)) = row else {
+            return Ok(CallPeople::default());
+        };
+
+        let name = |id: &Option<String>| -> Result<Option<String>> {
+            let Some(id) = id else { return Ok(None) };
+            conn.query_row(
+                "SELECT display_name FROM people WHERE id = ?1",
+                [id.as_str()],
+                |r| r.get(0),
+            )
+            .optional()
+            .map_err(|e| CaError::Storage(format!("person name: {e}")))
+        };
+
+        // Counting calls strictly earlier than this one makes the position
+        // stable: it does not shift when a later call is added, which a
+        // "3 of 5" phrasing would.
+        let (sequence, contact_calls) = match (&contact_id, &occurred_at) {
+            (Some(cid), Some(when)) => {
+                let earlier: i64 = conn
+                    .query_row(
+                        "SELECT count(*) FROM calls
+                          WHERE contact_id = ?1 AND occurred_at IS NOT NULL
+                            AND occurred_at < ?2",
+                        params![cid, when],
+                        |r| r.get(0),
+                    )
+                    .map_err(|e| CaError::Storage(format!("sequence: {e}")))?;
+                let total: i64 = conn
+                    .query_row(
+                        "SELECT count(*) FROM calls WHERE contact_id = ?1",
+                        [cid.as_str()],
+                        |r| r.get(0),
+                    )
+                    .map_err(|e| CaError::Storage(format!("contact calls: {e}")))?;
+                (
+                    Some(earlier.max(0) as usize + 1),
+                    Some(total.max(0) as usize),
+                )
+            }
+            _ => (None, None),
+        };
+
+        Ok(CallPeople {
+            agent_name: name(&agent_id)?,
+            contact_name: name(&contact_id)?,
+            agent_id,
+            contact_id,
+            attribution,
+            sequence,
+            contact_calls,
+        })
+    }
+}

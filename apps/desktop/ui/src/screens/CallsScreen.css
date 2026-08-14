@@ -5,7 +5,11 @@
   background: var(--surface-container-low); color: var(--on-surface); font: inherit; }
 .calls-search:focus-visible { outline: 2px solid var(--md-sys-color-primary); outline-offset: 1px; }
 
-.calls-table { width: 100%; border-collapse: collapse;
+/* Eight columns do not fit a narrow window. The table scrolls inside its own
+   box rather than making the whole page scroll sideways, which would drag the
+   nav rail and the header out of view with it. */
+.calls-scroll { overflow-x: auto; }
+.calls-table { width: 100%; min-width: 860px; border-collapse: collapse;
   background: var(--surface-container-low); border: 1px solid var(--outline);
   border-radius: var(--md-sys-shape-corner-medium, 12px); overflow: hidden; }
 .calls-table th { text-align: left; padding: 11px 14px; font-size: 12px; font-weight: 500;
@@ -15,7 +19,11 @@
 .calls-table tbody tr { cursor: pointer; }
 .calls-table tbody tr:hover { background: var(--surface-container-high); }
 .calls-table tbody tr:focus-visible { outline: 2px solid var(--md-sys-color-primary); outline-offset: -2px; }
-.calls-name { max-width: 420px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* The call time from the filename, not the ingest date: a bulk ingest gives
+   every row the same createdAt, which makes the column useless. */
+.calls-when { font-variant-numeric: tabular-nums; white-space: nowrap; }
+.calls-who { max-width: 180px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.calls-name { max-width: 230px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
 .calls-stage { padding: 3px 9px; border-radius: 999px; font-size: 12px;
   background: var(--surface-container-high); color: var(--on-surface-variant); }

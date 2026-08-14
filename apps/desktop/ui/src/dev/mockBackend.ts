@@ -146,6 +146,9 @@ const CALLS: CallSummary[] = [
     sentiment: 0.42,
     compliancePassed: true,
     blockingFindings: 0,
+    agentName: 'Priya Sharma',
+    contactName: 'Ishita AI Cloud Koradia',
+    occurredAt: '2025-11-12T14:23:26Z',
     speakerCount: 2,
   },
   ...Array.from({ length: 11 }, (_, i) => {
@@ -166,6 +169,11 @@ const CALLS: CallSummary[] = [
       sentiment: analysed ? Math.round((0.55 - (i % 5) * 0.32) * 100) / 100 : null,
       compliancePassed: analysed ? !failing : null,
       blockingFindings: failing ? 1 + (i % 2) : 0,
+      // Half attributed, half not: an unattributed call is a normal row and
+      // has to look like one rather than like a broken one.
+      agentName: i % 2 === 0 ? 'Priya Sharma' : null,
+      contactName: i % 3 === 0 ? null : `+9198${40000000 + i}`,
+      occurredAt: i % 4 === 0 ? null : `2025-${String((i % 11) + 1).padStart(2, '0')}-14T10:30:00Z`,
       speakerCount: stage === 'failed' ? null : 2,
     } satisfies CallSummary
   }),
@@ -1095,6 +1103,16 @@ function personDetail(personId: string): PersonDetail {
       const { personId } = args as { personId: string }
       return personDetail(personId)
     }
+    case 'get_call_people':
+      return {
+        agentId: 'person_agent',
+        agentName: 'Priya Sharma',
+        contactId: 'person_busy',
+        contactName: 'Ishita AI Cloud Koradia',
+        attribution: 'rule',
+        sequence: 5,
+        contactCalls: 196,
+      }
     case 'attribute_calls':
       return { scanned: 1972, attributed: 1972, skippedManual: 0, unmatched: 0 }
     case 'assign_call_person':

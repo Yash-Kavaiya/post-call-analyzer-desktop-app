@@ -13,6 +13,7 @@ import { TranscriptView } from '../components/transcript/TranscriptView'
 import { ConversationPanel } from '../components/metrics/ConversationPanel'
 import { AgentResults } from '../components/agents/AgentResults'
 import { RiskBanner } from '../components/agents/RiskBanner'
+import { ParticipantsBar } from '../components/agents/ParticipantsBar'
 import { CallCopilot } from '../components/copilot/CallCopilot'
 import {
   formatDuration,
@@ -33,9 +34,11 @@ import './CallDetailScreen.css'
 export interface CallDetailScreenProps {
   callId: string
   onBack: () => void
+  /** Opens a participant's page. Omitted when there is nowhere to go. */
+  onOpenPerson?: (personId: string) => void
 }
 
-export function CallDetailScreen({ callId, onBack }: CallDetailScreenProps) {
+export function CallDetailScreen({ callId, onBack, onOpenPerson }: CallDetailScreenProps) {
   const [detail, setDetail] = useState<CallDetail | null>(null)
   const [peaks, setPeaks] = useState<WaveformPeaks | null>(null)
   const [scorecard, setScorecard] = useState<Scorecard | null>(null)
@@ -186,6 +189,11 @@ export function CallDetailScreen({ callId, onBack }: CallDetailScreenProps) {
       {!unprocessed && (
         <RiskBanner callId={callId} onSeek={handleSeek} refreshToken={reload} />
       )}
+
+      {/* Who was on the call, and whether this contact has called before.
+          Above the waveform because "this is their fifth call this month"
+          changes how you listen to the first thirty seconds. */}
+      <ParticipantsBar callId={callId} onOpenPerson={onOpenPerson} />
 
       <section className="cd-waveform">
         <WaveformTimeline

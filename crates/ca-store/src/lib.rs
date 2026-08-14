@@ -19,7 +19,7 @@ pub mod timeline;
 pub use attribute::{AttributeOptions, AttributeReport};
 pub use findings::{FindingCount, StoredFinding};
 pub use observability::{AgentHealth, AgentRun};
-pub use people::PersonSummary;
+pub use people::{CallPeople, PersonSummary};
 pub use runs::{RunItem, RunSummary};
 
 use ca_core::analysis::{Analysis, Finding};
@@ -53,6 +53,14 @@ pub struct CallSummary {
     /// findings ledger, so it covers any agent that files them.
     pub blocking_findings: u32,
     pub speaker_count: Option<u32>,
+    /// Who handled the call, once attributed. `None` is normal: a filename
+    /// that names only the counterparty cannot say who took the call.
+    pub agent_name: Option<String>,
+    /// The other party, once attributed.
+    pub contact_name: Option<String>,
+    /// The real call time. Prefer this over `created_at`, which is when the
+    /// file was scanned and is the same day for most of a bulk ingest.
+    pub occurred_at: Option<String>,
 }
 
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
@@ -677,7 +685,10 @@ impl Store {
                           WHERE f.call_id = c.id
                             AND f.severity IN ('high', 'critical')),
                         (SELECT count(DISTINCT s.speaker_index)
-                           FROM segments s WHERE s.call_id = c.id)
+                           FROM segments s WHERE s.call_id = c.id),
+                        (SELECT p.display_name FROM people p WHERE p.id = c.agent_id),
+                        (SELECT p.display_name FROM people p WHERE p.id = c.contact_id),
+                        c.occurred_at
                  FROM calls c
                  WHERE (?3 = '%%' OR c.display_name LIKE ?3)
                  ORDER BY c.created_at DESC
@@ -700,6 +711,9 @@ impl Store {
                     compliance_passed: r.get(7)?,
                     blocking_findings: r.get::<_, i64>(8)?.max(0) as u32,
                     speaker_count: r.get::<_, Option<i64>>(9)?.map(|n| n as u32),
+                    agent_name: r.get(10)?,
+                    contact_name: r.get(11)?,
+                    occurred_at: r.get(12)?,
                 })
             })
             .map_err(|e| CaError::Storage(format!("query list: {e}")))?;

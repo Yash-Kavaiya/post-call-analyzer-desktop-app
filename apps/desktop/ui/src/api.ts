@@ -33,6 +33,12 @@ export interface CallSummary {
   /** Findings against the call severe enough to fail it. */
   blockingFindings: number
   speakerCount: number | null
+  /** Who handled the call, once attributed. Null is normal for a recorder
+   *  whose filenames name only the counterparty. */
+  agentName: string | null
+  contactName: string | null
+  /** The real call time. Prefer this over createdAt, which is ingest time. */
+  occurredAt: string | null
 }
 
 export interface Stats {
@@ -782,6 +788,17 @@ export interface PersonDetail {
   calls: PersonCall[]
 }
 
+export interface CallPeople {
+  agentId: string | null
+  agentName: string | null
+  contactId: string | null
+  contactName: string | null
+  attribution: 'none' | 'rule' | 'manual' | 'live'
+  /** Position in the contact's history, oldest first. 1 is a first contact. */
+  sequence: number | null
+  contactCalls: number | null
+}
+
 export interface AttributeReport {
   scanned: number
   attributed: number
@@ -797,6 +814,9 @@ export const getPerson = (personId: string): Promise<PersonDetail> =>
 
 export const attributeCalls = (dryRun: boolean, force: boolean): Promise<AttributeReport> =>
   invoke('attribute_calls', { dryRun, force })
+
+export const getCallPeople = (callId: string): Promise<CallPeople> =>
+  invoke('get_call_people', { callId })
 
 export const assignCallPerson = (
   callId: string,

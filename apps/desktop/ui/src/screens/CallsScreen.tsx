@@ -7,7 +7,7 @@
  */
 
 import { useEffect, useState } from 'react'
-import { formatDuration, listCalls, type CallSummary } from '../api'
+import { day, formatDuration, listCalls, type CallSummary } from '../api'
 import './CallsScreen.css'
 
 export interface CallsScreenProps {
@@ -119,10 +119,14 @@ export function CallsScreen({ onSelect }: CallsScreenProps) {
           {debounced ? `No calls match “${debounced}”.` : 'No calls yet — ingest a folder first.'}
         </p>
       ) : (
+        <div className="calls-scroll">
         <table className="calls-table">
           <thead>
             <tr>
               <th>Call</th>
+              <th>When</th>
+              <th>Contact</th>
+              <th>Agent</th>
               <th>Duration</th>
               <th>Stage</th>
               <th>Speakers</th>
@@ -136,6 +140,13 @@ export function CallsScreen({ onSelect }: CallsScreenProps) {
               <tr key={c.id} onClick={() => onSelect(c.id)} tabIndex={0}
                   onKeyDown={(e) => e.key === 'Enter' && onSelect(c.id)}>
                 <td className="calls-name" title={c.displayName}>{c.displayName}</td>
+                <td className="calls-when">{day(c.occurredAt)}</td>
+                <td className="calls-who">
+                  {c.contactName ?? <span className="calls-none">—</span>}
+                </td>
+                <td className="calls-who">
+                  {c.agentName ?? <span className="calls-none">—</span>}
+                </td>
                 <td>{formatDuration(c.durationSecs)}</td>
                 <td>
                   <span className={`calls-stage calls-${stageTone(c.stage)}`}>{c.stage}</span>
@@ -154,6 +165,7 @@ export function CallsScreen({ onSelect }: CallsScreenProps) {
             ))}
           </tbody>
         </table>
+        </div>
       )}
 
       <footer className="calls-pager">

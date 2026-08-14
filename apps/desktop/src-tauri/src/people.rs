@@ -5,7 +5,7 @@
 
 use ca_core::identity::{AttributionSource, PersonKind};
 use ca_core::ids::{CallId, PersonId};
-use ca_store::{AttributeOptions, AttributeReport, PersonSummary, Store};
+use ca_store::{AttributeOptions, AttributeReport, CallPeople, PersonSummary, Store};
 use std::sync::Arc;
 use tauri::State;
 
@@ -103,6 +103,17 @@ pub fn attribute_calls(
             &ca_identity::builtin_patterns(),
             AttributeOptions { dry_run, force },
         )
+        .map_err(|e| e.to_string())
+}
+
+/// Who was on one call, for the detail screen.
+#[tauri::command]
+pub fn get_call_people(
+    store: State<'_, Arc<Store>>,
+    call_id: String,
+) -> Result<CallPeople, String> {
+    store
+        .call_people(&CallId::from(call_id))
         .map_err(|e| e.to_string())
 }
 

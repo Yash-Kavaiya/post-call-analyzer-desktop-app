@@ -89,7 +89,11 @@ export default function App() {
 
       <main className="app-main">
         {selected ? (
-          <CallDetailScreen callId={selected} onBack={() => setSelected(null)} />
+          <CallDetailScreen
+            callId={selected}
+            onBack={() => setSelected(null)}
+            onOpenPerson={openPerson}
+          />
         ) : person ? (
           <PersonDetailScreen
             personId={person}

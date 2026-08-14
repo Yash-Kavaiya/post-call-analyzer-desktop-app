@@ -880,6 +880,7 @@ pub fn run() {
             people::list_people,
             people::get_person,
             people::attribute_calls,
+            people::get_call_people,
             people::assign_call_person,
         ])
         .run(tauri::generate_context!())

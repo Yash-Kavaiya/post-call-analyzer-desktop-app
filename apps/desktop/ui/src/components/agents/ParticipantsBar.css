@@ -1,0 +1,37 @@
+.pb-root { margin: 0 0 14px; }
+
+.pb-view, .pb-edit { display: flex; align-items: center; gap: 14px; flex-wrap: wrap;
+  padding: 10px 14px; background: var(--surface-container-low);
+  border: 1px solid var(--outline); border-radius: var(--md-sys-shape-corner-medium, 12px);
+  font-size: 13px; }
+
+.pb-slot { display: flex; align-items: baseline; gap: 7px; }
+.pb-label { font-size: 11px; text-transform: uppercase; letter-spacing: .04em;
+  color: var(--on-surface-variant); }
+.pb-link { background: none; border: none; padding: 0; font: inherit;
+  color: var(--md-sys-color-primary); cursor: pointer; text-decoration: underline;
+  text-underline-offset: 2px; }
+.pb-none { color: var(--on-surface-variant); opacity: .6; }
+
+/* The repeat marker is why this bar exists — it should read before the
+   provenance note, which is only ever consulted when something looks wrong. */
+.pb-repeat { padding: 3px 10px; border-radius: 999px; font-size: 12px;
+  background: rgba(26,115,232,.16); color: var(--md-sys-color-primary); }
+.pb-first { font-size: 12px; color: var(--on-surface-variant); }
+
+.pb-origin { margin-left: auto; font-size: 12px; color: var(--on-surface-variant); opacity: .75; }
+
+.pb-field { display: flex; align-items: center; gap: 7px; }
+.pb-field span { font-size: 11px; text-transform: uppercase; letter-spacing: .04em;
+  color: var(--on-surface-variant); }
+.pb-field input { padding: 6px 10px; border: 1px solid var(--outline); border-radius: 8px;
+  background: var(--surface-container-high); color: var(--on-surface); font: inherit;
+  font-size: 13px; }
+.pb-field input:focus-visible { outline: 2px solid var(--md-sys-color-primary); outline-offset: 1px; }
+
+.pb-edit button, .pb-ghost { padding: 6px 13px; border: 1px solid var(--outline);
+  border-radius: 999px; background: transparent; color: inherit; font: inherit;
+  font-size: 12px; cursor: pointer; }
+.pb-edit button:disabled { opacity: .5; cursor: default; }
+
+.pb-error { color: var(--error, #B3261E); font-size: 13px; }
