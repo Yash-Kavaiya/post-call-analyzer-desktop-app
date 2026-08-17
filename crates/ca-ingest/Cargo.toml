@@ -10,7 +10,7 @@ ca-core.workspace = true
 reqwest.workspace = true
 serde_json.workspace = true
 # Listing APIs for S3 and Azure are XML; Google's is JSON.
-quick-xml = "0.38"
+quick-xml = "0.41"
 tokio = { workspace = true, features = ["fs"] }
 serde.workspace = true
 tracing.workspace = true
