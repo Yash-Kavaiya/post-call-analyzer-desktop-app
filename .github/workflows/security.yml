@@ -44,14 +44,14 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           # gitleaks scans history, not just the working tree — a key that was
           # committed and then removed is still a leaked key.
           fetch-depth: 0
 
       - name: gitleaks
-        uses: gitleaks/gitleaks-action@v2
+        uses: gitleaks/gitleaks-action@v3
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           # Only organisation-owned repositories need a licence key. If this
@@ -76,7 +76,7 @@ jobs:
         # sources    — nothing from an unaudited registry or a git URL
         check: [advisories, bans, licenses, sources]
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: cargo deny check ${{ matrix.check }}
         uses: EmbarkStudios/cargo-deny-action@v2
@@ -97,9 +97,9 @@ jobs:
       run:
         working-directory: apps/desktop/ui
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
           node-version: "24"
           cache: npm
@@ -130,9 +130,9 @@ jobs:
       contents: read
       pull-requests: write
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
-      - uses: actions/dependency-review-action@v4
+      - uses: actions/dependency-review-action@v5
         with:
           fail-on-severity: high
           # Mirrors the allowlist in deny.toml. Stated again here because
@@ -156,16 +156,16 @@ jobs:
       contents: read
       security-events: write
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Initialize CodeQL
-        uses: github/codeql-action/init@v3
+        uses: github/codeql-action/init@v4
         with:
           languages: javascript-typescript
           queries: security-and-quality
 
       - name: Analyze
-        uses: github/codeql-action/analyze@v3
+        uses: github/codeql-action/analyze@v4
         with:
           category: /language:javascript-typescript
 
@@ -177,13 +177,13 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: actionlint
         # Catches invalid expressions, unknown contexts, bad runner labels and
         # shellcheck findings inside `run:` blocks — mistakes that otherwise
         # only surface as a failed run on main.
-        uses: raven-actions/actionlint@v1
+        uses: raven-actions/actionlint@v2
         with:
           fail-on-error: true
 
@@ -203,7 +203,7 @@ jobs:
       security-events: write
       id-token: write
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           persist-credentials: false
 
@@ -218,7 +218,7 @@ jobs:
         # Requires a public repository, or GitHub Advanced Security on a
         # private one. Non-fatal so a private fork does not fail the workflow.
         continue-on-error: true
-        uses: github/codeql-action/upload-sarif@v3
+        uses: github/codeql-action/upload-sarif@v4
         with:
           sarif_file: scorecard.sarif
           category: scorecard
