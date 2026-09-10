@@ -12,7 +12,7 @@ serde.workspace = true
 serde_json.workspace = true
 tracing.workspace = true
 async-trait.workspace = true
-toml = "0.9"
+toml = "1.1"
 
 [dev-dependencies]
 # The copilot tests drive an async trait method against a stub provider.
