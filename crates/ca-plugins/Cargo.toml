@@ -14,7 +14,7 @@ ca-llm.workspace = true
 chrono.workspace = true
 serde.workspace = true
 serde_json.workspace = true
-toml = "0.8"
+toml = "1.1"
 tracing.workspace = true
 
 [dev-dependencies]
