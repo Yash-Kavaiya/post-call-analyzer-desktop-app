@@ -12,6 +12,7 @@ import { TransportControls, WaveformTimeline, useAudioPlayer } from '../componen
 import { TranscriptView } from '../components/transcript/TranscriptView'
 import { ConversationPanel } from '../components/metrics/ConversationPanel'
 import { AgentResults } from '../components/agents/AgentResults'
+import { PluginResults } from '../components/agents/PluginResults'
 import { RiskBanner } from '../components/agents/RiskBanner'
 import { ParticipantsBar } from '../components/agents/ParticipantsBar'
 import { CallCopilot } from '../components/copilot/CallCopilot'
@@ -236,6 +237,7 @@ export function CallDetailScreen({ callId, onBack, onOpenPerson }: CallDetailScr
         <section className="cd-agents">
           <h3>AI analysis</h3>
           <AgentResults callId={callId} onSeek={handleSeek} refreshToken={reload} />
+          <PluginResults callId={callId} refreshToken={reload} />
         </section>
       )}
 

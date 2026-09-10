@@ -28,6 +28,8 @@ import {
   type ProviderTest,
 } from '../api'
 import { ResetPanel } from '../components/settings/ResetPanel'
+import { CollectorPanel } from '../components/settings/CollectorPanel'
+import { PluginPanel } from '../components/settings/PluginPanel'
 import { ScopePanel } from '../components/settings/ScopePanel'
 import './SettingsScreen.css'
 
@@ -321,6 +323,8 @@ export function SettingsScreen() {
       )}
 
       <ScopePanel />
+      <PluginPanel />
+      <CollectorPanel />
       <ResetPanel />
     </div>
   )

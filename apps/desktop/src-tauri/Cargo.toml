@@ -19,6 +19,8 @@ tauri = { version = "2", features = ["protocol-asset"] }
 tauri-plugin-dialog = "2"
 ca-core.workspace = true
 ca-identity.workspace = true
+ca-sync.workspace = true
+ca-plugins.workspace = true
 ca-store.workspace = true
 ca-ingest.workspace = true
 ca-pipeline.workspace = true

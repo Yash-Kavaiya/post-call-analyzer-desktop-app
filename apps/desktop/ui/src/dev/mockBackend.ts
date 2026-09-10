@@ -1120,6 +1120,79 @@ function personDetail(personId: string): PersonDetail {
         sequence: 5,
         contactCalls: 196,
       }
+    case 'get_plugin_analyses': {
+      const { callId } = args as { callId: string }
+      // Only the demo call has plugin output, and one of the two failed —
+      // a recorded failure has to render as one, not as silence.
+      return callId === 'call_demo_1'
+        ? [
+            {
+              plugin: 'callback_sla',
+              payload: {
+                promised: true,
+                named_a_time: false,
+                within_sla: false,
+                signals: ['I will ring you back', 'sometime this week'],
+                summary: 'Callback promised with no specific time.',
+              },
+              provider: 'nvidia_nim',
+              model: 'meta/llama-3.1-8b-instruct',
+              costUsd: null,
+              createdAt: '2026-08-14T10:00:00Z',
+              error: null,
+            },
+            {
+              plugin: 'loyalty_mention',
+              payload: null,
+              provider: 'nvidia_nim',
+              model: 'meta/llama-3.1-8b-instruct',
+              costUsd: null,
+              createdAt: '2026-08-14T10:00:00Z',
+              error: 'required field `mentioned` is missing',
+            },
+          ]
+        : []
+    }
+    case 'get_sync_settings':
+      return { url: 'http://collector.internal:8480', hasToken: true }
+    case 'save_sync_settings':
+      return { url: 'http://collector.internal:8480', hasToken: true }
+    case 'run_sync':
+      return { pushed: 42, pulled: 0, withheld: 0, rejected: 0 }
+    case 'list_plugins':
+      return {
+        dir: 'C:/Users/demo/AppData/Roaming/com.callanalyzer.desktop/plugins',
+        plugins: [
+          { name: 'callback_sla', title: 'Callback within SLA', path: 'callback_sla.toml', findings: true, error: null },
+          { name: 'loyalty_mention', title: 'Loyalty mention', path: 'loyalty_mention.toml', findings: false, error: null },
+        ],
+      }
+    case 'run_plugins':
+      return { ran: 2, skipped: 0, failed: 0 }
+    case 'get_sync_report':
+      return {
+        calls: 1972,
+        callsWithoutATime: 0,
+        // Most of a real corpus is unscored; the panel must show a dash.
+        meanQa: 61.6,
+        meanSentiment: 0.3,
+        compliancePassRate: 1,
+        scoredCalls: 7,
+        agents: [
+          { agentId: 'person_a1b2c3d4e5f6', calls: 640, meanQa: 74.2, meanSentiment: 0.11, compliancePassRate: 0.94, failingCalls: 12 },
+          { agentId: 'person_9f8e7d6c5b4a', calls: 512, meanQa: null, meanSentiment: null, compliancePassRate: null, failingCalls: 0 },
+        ],
+        codes: [
+          { code: 'PCI_PAN_SPOKEN', severity: 'critical', calls: 3 },
+          { code: 'HOLD_NOT_TIMEBOXED', severity: 'high', calls: 47 },
+          { code: 'TALK_OVER', severity: 'low', calls: 210 },
+        ],
+        months: [
+          { month: '2025-09', calls: 226, meanQa: null },
+          { month: '2025-10', calls: 172, meanQa: 100 },
+          { month: '2025-11', calls: 167, meanQa: 46.2 },
+        ],
+      }
     case 'get_view_scope':
       return { handle: 'priya sharma', role: 'supervisor', unrestricted: false, team: 'North' }
     case 'set_operator':

@@ -21,15 +21,50 @@ use ca_core::error::{CaError, Result};
 
 /// Credential Manager groups entries by service; one per vendor keeps them
 /// individually revocable from the OS UI.
-fn service_for(kind: ProviderKind) -> String {
-    format!("call-analyzer:{}", kind.as_str())
-}
-
 const ACCOUNT: &str = "api-key";
 
 fn entry(kind: ProviderKind) -> Result<keyring::Entry> {
-    keyring::Entry::new(&service_for(kind), ACCOUNT)
+    named_entry(kind.as_str(), ACCOUNT)
+}
+
+/// A credential that is not a vendor API key.
+///
+/// The sync token is the other secret this product holds, and it belongs in
+/// the same place for the same reasons: a config file gets committed, and a
+/// row in the database travels with any copy of it.
+fn named_entry(name: &str, account: &str) -> Result<keyring::Entry> {
+    keyring::Entry::new(&format!("call-analyzer:{name}"), account)
         .map_err(|e| CaError::Config(format!("credential store unavailable: {e}")))
+}
+
+/// Save a secret under a name. An empty string deletes rather than storing a
+/// blank, which would otherwise read as "configured" while being useless.
+pub fn store_named(name: &str, value: &str) -> Result<()> {
+    let value = value.trim();
+    if value.is_empty() {
+        return delete_named(name);
+    }
+    named_entry(name, ACCOUNT)?
+        .set_password(value)
+        .map_err(|e| CaError::Config(format!("could not save `{name}`: {e}")))
+}
+
+/// Read a secret. Used by the backend only — never returned to the UI.
+pub fn read_named(name: &str) -> Option<String> {
+    named_entry(name, ACCOUNT)
+        .ok()
+        .and_then(|e| e.get_password().ok())
+        .map(|v| v.trim().to_string())
+        .filter(|v| !v.is_empty())
+}
+
+pub fn delete_named(name: &str) -> Result<()> {
+    match named_entry(name, ACCOUNT)?.delete_credential() {
+        Ok(()) => Ok(()),
+        // Deleting something that was never there is the desired end state.
+        Err(keyring::Error::NoEntry) => Ok(()),
+        Err(e) => Err(CaError::Config(format!("could not clear `{name}`: {e}"))),
+    }
 }
 
 /// Save a key. An empty string deletes rather than storing a blank.
@@ -107,8 +142,8 @@ mod tests {
     fn each_vendor_gets_its_own_credential_entry() {
         // Shared entries cannot be revoked one at a time, and one vendor's key
         // would silently authenticate calls to another.
-        let a = service_for(ProviderKind::OpenAi);
-        let b = service_for(ProviderKind::Anthropic);
+        let a = format!("call-analyzer:{}", ProviderKind::OpenAi.as_str());
+        let b = format!("call-analyzer:{}", ProviderKind::Anthropic.as_str());
         assert_ne!(a, b);
         assert!(a.starts_with("call-analyzer:"));
     }

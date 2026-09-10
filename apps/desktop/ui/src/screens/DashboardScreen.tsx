@@ -6,9 +6,11 @@ import { useEffect, useState } from 'react'
 import {
   formatDuration,
   formatHours,
+  getStartup,
   getStats,
   listCalls,
   type CallSummary,
+  type Startup,
   type Stats,
 } from '../api'
 import './DashboardScreen.css'
@@ -42,13 +44,15 @@ function Tile({ label, value, hint }: { label: string; value: string; hint?: str
 export function DashboardScreen({ onSelect }: DashboardScreenProps) {
   const [stats, setStats] = useState<Stats | null>(null)
   const [recent, setRecent] = useState<CallSummary[]>([])
+  const [startup, setStartup] = useState<Startup | null>(null)
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
-    Promise.all([getStats(), listCalls(0, 8)])
-      .then(([s, r]) => {
+    Promise.all([getStats(), listCalls(0, 8), getStartup().catch(() => null)])
+      .then(([s, r, start]) => {
         setStats(s)
         setRecent(r)
+        setStartup(start)
       })
       .catch((e: unknown) => setError(String(e)))
   }, [])
@@ -68,6 +72,15 @@ export function DashboardScreen({ onSelect }: DashboardScreenProps) {
   return (
     <div className="dash-root">
       <h2>Overview</h2>
+
+      {startup && (!startup.whisperBinaryPresent || !startup.whisperModelPresent) && (
+        <p className="dash-warn">
+          Transcription is not ready
+          {!startup.whisperBinaryPresent && ` — whisper is missing (${startup.whisperBinary})`}
+          {!startup.whisperModelPresent &&
+            ` — model is missing (${startup.whisperModel}). Run scripts/fetch-models.ps1, then restart.`}
+        </p>
+      )}
 
       <div className="dash-tiles">
         <Tile label="Calls" value={String(stats.totalCalls)} />

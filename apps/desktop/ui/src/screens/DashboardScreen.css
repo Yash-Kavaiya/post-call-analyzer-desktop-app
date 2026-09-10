@@ -1,4 +1,7 @@
 .dash-root h2 { margin: 0 0 20px; font-size: 26px; font-weight: 500; }
+.dash-warn { margin: 0 0 18px; padding: 10px 12px; font-size: 13px; line-height: 1.5;
+  border-left: 3px solid var(--error, #B3261E); background: var(--surface-container-high);
+  color: var(--on-surface-variant); border-radius: 0 8px 8px 0; overflow-wrap: anywhere; }
 .dash-tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
   gap: 14px; margin-bottom: 26px; }
 .dash-tile { display: flex; flex-direction: column; gap: 4px; padding: 16px 18px;

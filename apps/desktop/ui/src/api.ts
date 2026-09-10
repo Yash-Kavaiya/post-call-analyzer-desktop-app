@@ -818,6 +818,108 @@ export const getPerson = (personId: string): Promise<PersonDetail> =>
 export const attributeCalls = (dryRun: boolean, force: boolean): Promise<AttributeReport> =>
   invoke('attribute_calls', { dryRun, force })
 
+export interface PluginAnalysis {
+  plugin: string
+  /** Declared per plugin, so the shape is not known ahead of time. */
+  payload: Record<string, unknown> | null
+  provider: string
+  model: string
+  costUsd: number | null
+  createdAt: string
+  /** Set when the plugin ran but its output failed validation. */
+  error: string | null
+}
+
+export const getPluginAnalyses = (callId: string): Promise<PluginAnalysis[]> =>
+  invoke('get_plugin_analyses', { callId })
+
+export interface SyncSettings {
+  url: string | null
+  /** Whether a token is stored. The value never crosses this boundary. */
+  hasToken: boolean
+}
+
+export interface SyncOutcome {
+  pushed: number
+  pulled: number
+  /** Records the local guard refused to send. */
+  withheld: number
+  rejected: number
+}
+
+export interface AgentRollup {
+  agentId: string
+  calls: number
+  /** Null when none of their calls carry the measure. */
+  meanQa: number | null
+  meanSentiment: number | null
+  compliancePassRate: number | null
+  failingCalls: number
+}
+
+export interface CodeRollup {
+  code: string
+  severity: string
+  /** Calls that raised it, not raw occurrences. */
+  calls: number
+}
+
+export interface MonthRollup {
+  month: string
+  calls: number
+  meanQa: number | null
+}
+
+export interface Rollup {
+  calls: number
+  callsWithoutATime: number
+  meanQa: number | null
+  meanSentiment: number | null
+  compliancePassRate: number | null
+  /** How many calls the mean covers. */
+  scoredCalls: number
+  agents: AgentRollup[]
+  codes: CodeRollup[]
+  months: MonthRollup[]
+}
+
+export const getSyncSettings = (): Promise<SyncSettings> => invoke('get_sync_settings')
+
+/** An undefined token leaves the stored one alone; an empty string clears it. */
+export const saveSyncSettings = (
+  url: string | null,
+  token?: string,
+): Promise<SyncSettings> => invoke('save_sync_settings', { url, token })
+
+export const runSync = (): Promise<SyncOutcome> => invoke('run_sync')
+
+export const getSyncReport = (): Promise<Rollup> => invoke('get_sync_report')
+
+export interface PluginInfo {
+  name: string | null
+  title: string | null
+  path: string
+  findings: boolean
+  error: string | null
+}
+
+export interface PluginsSnapshot {
+  /** Directory this install reads .toml files from. */
+  dir: string
+  plugins: PluginInfo[]
+}
+
+export interface PluginRunOutcome {
+  ran: number
+  skipped: number
+  failed: number
+}
+
+export const listPlugins = (): Promise<PluginsSnapshot> => invoke('list_plugins')
+
+export const runPlugins = (callId: string, force: boolean): Promise<PluginRunOutcome> =>
+  invoke('run_plugins', { callId, force })
+
 export interface ViewScopeInfo {
   handle: string | null
   role: 'agent' | 'supervisor' | 'admin'

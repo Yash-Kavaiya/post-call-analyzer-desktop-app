@@ -19,6 +19,7 @@ use std::sync::Arc;
 use tauri::{Emitter, Manager, State};
 
 /// Everything the commands need, resolved once at startup.
+mod collector;
 mod live;
 mod people;
 
@@ -760,6 +761,11 @@ pub fn run() {
                 Err(e) => tracing::warn!(error = %e, "could not close stale runs"),
             }
 
+            // people.rs and collector.rs take `State<Arc<Store>>` directly.
+            // Without this, those commands fail at runtime as "state not
+            // managed" while the rest of the app looks fine.
+            app.manage(store.clone());
+            seed_example_plugins(app.handle());
             app.manage(AppState {
                 store,
                 whisper_binary: locate(app.handle(), "vendor/whisper/Release/whisper-cli.exe"),
@@ -813,6 +819,13 @@ pub fn run() {
             people::list_teams,
             people::set_person_role,
             people::set_person_team,
+            collector::get_plugin_analyses,
+            collector::get_sync_settings,
+            collector::save_sync_settings,
+            collector::run_sync,
+            collector::get_sync_report,
+            collector::list_plugins,
+            collector::run_plugins,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
@@ -867,4 +880,39 @@ fn locate(app: &tauri::AppHandle, relative: &str) -> PathBuf {
         .into_iter()
         .find(|p| p.exists())
         .unwrap_or(fallback)
+}
+
+/// Copy the two shipped examples into the plugins folder the first time.
+///
+/// Only when the destination does not exist, so a later delete stays deleted.
+/// Without this, an installed machine has a Settings panel that says "drop a
+/// file here" and nothing to drop — the examples live in the source tree.
+fn seed_example_plugins(app: &tauri::AppHandle) {
+    let dest = {
+        let db = ca_store::default_db_path();
+        let base = db.parent().map(|p| p.to_path_buf()).unwrap_or_default();
+        ca_plugins::default_plugin_dir(&base)
+    };
+    if dest.exists() {
+        return;
+    }
+    let src = locate(app, "examples/plugins");
+    if !src.is_dir() {
+        return;
+    }
+    if std::fs::create_dir_all(&dest).is_err() {
+        return;
+    }
+    let Ok(entries) = std::fs::read_dir(&src) else {
+        return;
+    };
+    for entry in entries.flatten() {
+        let path = entry.path();
+        if path.extension().and_then(|e| e.to_str()) != Some("toml") {
+            continue;
+        }
+        if let Some(name) = path.file_name() {
+            let _ = std::fs::copy(&path, dest.join(name));
+        }
+    }
 }
